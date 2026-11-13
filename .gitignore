@@ -1,0 +1,69 @@
+# ==============================================================================
+# BrandShield AI - Root .gitignore
+# CodeNova India 2026 Round 2
+# ==============================================================================
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+frontend/dist/
+frontend/dist-ssr/
+frontend/build/
+dist/
+dist-ssr/
+build/
+.eslintcache
+.turbo/
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Environment Variables & Secrets (CRITICAL: Never commit credentials)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+
+# IDEs & Operating System Artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+*.bak
+*.tmp
+
+# Packaging & Archives (Do not commit archives into git repository)
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+BrandShield-AI-Submission.zip
+submission/
