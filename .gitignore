@@ -83,3 +83,6 @@ scratch/
 
 # TypeScript build cache
 *.tsbuildinfo
+
+.vercel
+.env*
