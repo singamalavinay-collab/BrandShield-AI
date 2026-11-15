@@ -1,0 +1,73 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL Production Database
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: brandshield-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-brandshield}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Error: DB_PASSWORD environment variable is required}
+      POSTGRES_DB: ${DB_NAME:-brandshield_ai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-brandshield} -d ${DB_NAME:-brandshield_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - brandshield-network
+
+  # ============================================================================
+  # 2. FastAPI Backend Service
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brandshield-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-brandshield}:${DB_PASSWORD:?Error: DB_PASSWORD environment variable is required}@postgres:5432/${DB_NAME:-brandshield_ai}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?Error: JWT_SECRET_KEY environment variable is required}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-https://brandshield.ai,https://app.brandshield.ai}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    networks:
+      - brandshield-network
+    expose:
+      - "8000"
+
+  # ============================================================================
+  # 3. React Frontend & Reverse Proxy
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: brandshield-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    networks:
+      - brandshield-network
+
+networks:
+  brandshield-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local

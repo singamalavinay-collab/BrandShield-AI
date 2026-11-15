@@ -67,3 +67,19 @@ desktop.ini
 *.rar
 BrandShield-AI-Submission.zip
 submission/
+
+# Local databases and backups
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.backup
+*.bak
+
+# Developer scratch files
+scratch/
+
+# TypeScript build cache
+*.tsbuildinfo
