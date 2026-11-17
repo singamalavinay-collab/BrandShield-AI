@@ -11,7 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.health import get_health
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.schemas.health import HealthResponse
 
 # Configure logging

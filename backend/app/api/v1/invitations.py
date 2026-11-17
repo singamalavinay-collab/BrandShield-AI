@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
-from typing import List
+from typing import List, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
