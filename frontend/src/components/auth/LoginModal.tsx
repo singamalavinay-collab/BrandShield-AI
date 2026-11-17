@@ -81,7 +81,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         msg.includes('timed out') ||
         msg.includes('econnrefused')
       ) {
-        return 'Backend API is currently offline or unreachable at http://127.0.0.1:8000. Please ensure the FastAPI backend is running.';
+        // Replaced legacy dev error message that exposed http://127.0.0.1:8000
+        return 'Unable to connect to the authentication service. Please check your connection or try again later.';
       }
       return err.message;
     }
