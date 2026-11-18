@@ -72,7 +72,7 @@ export function clearAuthSession(): void {
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
-  timeoutMs = 6000
+  timeoutMs = 35000
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const controller = new AbortController();
@@ -150,9 +150,9 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
       timestamp?: string;
     };
     try {
-      data = await apiRequest('/api/v1/health', { method: 'GET' }, 3000);
+      data = await apiRequest('/api/v1/health', { method: 'GET' }, 60000);
     } catch {
-      data = await apiRequest('/health', { method: 'GET' }, 3000);
+      data = await apiRequest('/health', { method: 'GET' }, 15000);
     }
 
     const latency = Math.round(performance.now() - startTime);
@@ -494,7 +494,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
   const session = await apiRequest<AuthSession>('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify(credentials),
-  });
+  }, 60000);
   setAuthSession(session);
   return session;
 }
@@ -507,7 +507,7 @@ export async function register(credentials: RegisterCredentials): Promise<AuthSe
       email: credentials.email.trim().toLowerCase(),
       password: credentials.password,
     }),
-  });
+  }, 60000);
   setAuthSession(session);
   return session;
 }
@@ -521,7 +521,7 @@ export async function onboardWorkspace(credentials: OnboardCredentials): Promise
       email: credentials.email.trim().toLowerCase(),
       password: credentials.password,
     }),
-  });
+  }, 60000);
   setAuthSession(session);
   return session;
 }
@@ -593,7 +593,7 @@ export async function validateInvitationToken(token: string): Promise<Invitation
   const cleanToken = encodeURIComponent(token.trim());
   return apiRequest<InvitationValidationResponse>(`/api/v1/invitations/validate?token=${cleanToken}`, {
     method: 'GET',
-  });
+  }, 60000);
 }
 
 /**
@@ -608,7 +608,7 @@ export async function acceptInvitation(payload: AcceptInvitationDTO): Promise<Au
       full_name: payload.full_name.trim(),
       password: payload.password,
     }),
-  });
+  }, 60000);
   setAuthSession(session);
   return session;
 }

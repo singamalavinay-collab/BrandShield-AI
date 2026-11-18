@@ -81,8 +81,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         msg.includes('timed out') ||
         msg.includes('econnrefused')
       ) {
-        // Replaced legacy dev error message that exposed http://127.0.0.1:8000
-        return 'Unable to connect to the authentication service. Please check your connection or try again later.';
+        return 'Authentication service is temporarily unreachable or waking up from sleep. Please wait a moment and try again.';
       }
       return err.message;
     }

@@ -94,9 +94,9 @@ describe('Phase 4.2 Secure Authentication & Registration Invariants', () => {
 
   test('Invariant 5: Clear error messages for network/backend offline failures', () => {
     assert.strictEqual(
-      modalContent.includes('http://127.0.0.1:8000'),
+      modalContent.includes('Authentication service is temporarily unreachable or waking up from sleep. Please wait a moment and try again.'),
       true,
-      'Error handler must provide clear actionable guidance when FastAPI backend is offline'
+      'Error handler must provide clear actionable guidance when authentication backend is offline or warming up'
     );
   });
 

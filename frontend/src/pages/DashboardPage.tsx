@@ -299,7 +299,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               )}
               {!backendHealth.is_connected && (
                 <div className="pt-1 text-[11px] text-slate-500 leading-snug">
-                  Local FastAPI server is offline. Run Uvicorn on port 8000 to enable real-time backend API sync.
+                  Backend API is currently offline or warming up. Reconnecting to service...
                 </div>
               )}
             </div>
