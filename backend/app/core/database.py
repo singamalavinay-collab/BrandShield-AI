@@ -83,8 +83,8 @@ async def set_tenant_context(session: AsyncSession, organization_id: UUID) -> No
     """
     bind = session.bind
     if bind and getattr(bind, "dialect", None) and bind.dialect.name == "postgresql":
-        # Safe parameterized execution preventing SQL injection
+        # Safe parameterized execution preventing SQL injection using transaction-local set_config
         await session.execute(
-            text("SET LOCAL app.current_org_id = :org_id"),
+            text("SELECT set_config('app.current_org_id', :org_id, true)"),
             {"org_id": str(organization_id)},
         )

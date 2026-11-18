@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 import uuid
 import pytest
 import pytest_asyncio
@@ -6,7 +7,12 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.database import Base, ImmutableAuditError, get_engine_options
+from app.core.database import (
+    Base,
+    ImmutableAuditError,
+    get_engine_options,
+    set_tenant_context,
+)
 from app.models import (
     AuditEntry,
     BrandGuideline,
@@ -596,3 +602,58 @@ def test_database_engine_options() -> None:
 
     sqlite_opts = get_engine_options("sqlite+aiosqlite:///:memory:")
     assert "pool_size" not in sqlite_opts
+
+
+@pytest.mark.asyncio
+async def test_set_tenant_context_postgresql_dialect() -> None:
+    """Verify that PostgreSQL dialect executes parameterized set_config with transaction-local scope."""
+    test_org_id = uuid.uuid4()
+    mock_session = AsyncMock(spec=AsyncSession)
+    mock_session.bind = MagicMock()
+    mock_session.bind.dialect.name = "postgresql"
+
+    await set_tenant_context(mock_session, test_org_id)
+
+    # Verify session.execute was called exactly once
+    assert mock_session.execute.await_count == 1
+    call_args = mock_session.execute.await_args
+    assert call_args is not None
+
+    statement = call_args.args[0]
+    params = call_args.args[1]
+
+    # Verify statement text matches approved safe set_config pattern
+    raw_sql = str(statement.text if hasattr(statement, "text") else statement)
+    assert "SELECT set_config('app.current_org_id', :org_id, true)" in raw_sql
+    # Verify transaction-local scope argument is true
+    assert ", true)" in raw_sql
+    # Verify no raw UUID string was interpolated into the SQL statement itself
+    assert str(test_org_id) not in raw_sql
+
+    # Verify parameters dictionary contains correct UUID string bound to :org_id
+    assert params == {"org_id": str(test_org_id)}
+
+
+@pytest.mark.asyncio
+async def test_set_tenant_context_sqlite_dialect_skipped() -> None:
+    """Verify that SQLite dialect safely skips PostgreSQL-specific set_config execution."""
+    test_org_id = uuid.uuid4()
+    mock_session = AsyncMock(spec=AsyncSession)
+    mock_session.bind = MagicMock()
+    mock_session.bind.dialect.name = "sqlite"
+
+    await set_tenant_context(mock_session, test_org_id)
+
+    # Verify session.execute was not called for SQLite
+    assert mock_session.execute.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_set_tenant_context_unbound_session_safely_skipped() -> None:
+    """Verify that sessions without an active bind or dialect safely bypass execution."""
+    test_org_id = uuid.uuid4()
+    mock_session = AsyncMock(spec=AsyncSession)
+    mock_session.bind = None
+
+    await set_tenant_context(mock_session, test_org_id)
+    assert mock_session.execute.await_count == 0
