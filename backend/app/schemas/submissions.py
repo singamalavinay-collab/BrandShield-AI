@@ -46,6 +46,29 @@ class SubmissionBase(BaseModel):
         serialization_alias="metadata",
         description="Optional operational or campaign metadata",
     )
+    media_type: str = Field(
+        default="text",
+        description="Media format category (e.g. text, image, document, audio, video)",
+    )
+    file_hash_sha256: Optional[str] = Field(
+        default=None,
+        max_length=64,
+        description="Cryptographic SHA-256 hash of the uploaded media file",
+    )
+    mime_type: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="MIME content type of the uploaded media asset",
+    )
+    file_size_bytes: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Byte size of the uploaded media asset",
+    )
+    multimodal_metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Validated media dimensions, page counts, durations, or OCR markers",
+    )
 
     @field_validator("title", "content", mode="before")
     @classmethod
@@ -168,6 +191,15 @@ class SubmissionResponse(SubmissionBase):
                 "updated_at": getattr(data, "updated_at", None),
                 "is_archived": getattr(data, "is_archived", False),
                 "archived_at": getattr(data, "archived_at", None),
+                "media_type": getattr(data, "media_type", "text") or "text",
+                "file_hash_sha256": getattr(data, "file_hash_sha256", None),
+                "mime_type": getattr(data, "mime_type", None),
+                "file_size_bytes": getattr(data, "file_size_bytes", None),
+                "multimodal_metadata": (
+                    data.multimodal_metadata
+                    if isinstance(getattr(data, "multimodal_metadata", None), dict)
+                    else {}
+                ),
             }
         return data
 

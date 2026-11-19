@@ -13,11 +13,13 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.candidate_guideline import CandidateGuideline
     from app.models.compliance import ComplianceReport
     from app.models.organization import Organization
     from app.models.review import AuditEntry, ReviewDecision
@@ -107,6 +109,33 @@ class ContentSubmission(Base):
         nullable=True,
     )
 
+    # Multimodal Submission Metadata (Phase 0C)
+    media_type: Mapped[str] = mapped_column(
+        String(50),
+        default="text",
+        server_default="text",
+        nullable=False,
+        index=True,
+    )
+    file_hash_sha256: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
+    mime_type: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    file_size_bytes: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    multimodal_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"),
+        default=dict,
+        nullable=False,
+    )
+
     # Relationships
     organization: Mapped["Organization"] = relationship(
         "Organization",
@@ -142,6 +171,11 @@ class ContentSubmission(Base):
         foreign_keys="AuditEntry.submission_id",
         lazy="selectin",
     )
+    extracted_candidate_guidelines: Mapped[List["CandidateGuideline"]] = relationship(
+        "CandidateGuideline",
+        back_populates="source_submission",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         CheckConstraint(
@@ -153,4 +187,5 @@ class ContentSubmission(Base):
             name="chk_submission_version_positive",
         ),
         Index("idx_submissions_org_status", "organization_id", "status"),
+        Index("idx_submissions_org_media_type", "organization_id", "media_type"),
     )

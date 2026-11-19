@@ -7,6 +7,15 @@ from app.schemas.auth import (
     UserAuthResponse,
     UserRole,
 )
+from app.schemas.candidate_guidelines import (
+    CandidateExtractionStatus,
+    CandidateGuidelineAuditEntryResponse,
+    CandidateGuidelineBase,
+    CandidateGuidelineCreate,
+    CandidateGuidelineResponse,
+    CandidateGuidelineReviewAction,
+    CandidateReviewStatus,
+)
 from app.schemas.common import (
     ReviewAction,
     RuleType,
@@ -61,6 +70,14 @@ __all__ = [
     "GuidelineCreate",
     "GuidelineUpdate",
     "GuidelineResponse",
+    # Candidate Guidelines (Phase 0C)
+    "CandidateReviewStatus",
+    "CandidateExtractionStatus",
+    "CandidateGuidelineBase",
+    "CandidateGuidelineCreate",
+    "CandidateGuidelineReviewAction",
+    "CandidateGuidelineResponse",
+    "CandidateGuidelineAuditEntryResponse",
     # Submissions
     "SubmissionCreate",
     "SubmissionResponse",

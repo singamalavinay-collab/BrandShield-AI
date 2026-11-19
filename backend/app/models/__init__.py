@@ -1,6 +1,8 @@
 """Centralized SQLAlchemy ORM models package for BrandShield AI."""
 
 from app.core.database import Base, ImmutableAuditError
+from app.models.candidate_guideline import CandidateGuideline
+from app.models.candidate_guideline_audit import CandidateGuidelineAuditEntry
 from app.models.compliance import (
     ComplianceReport,
     CorrectionSuggestion,
@@ -20,6 +22,8 @@ __all__ = [
     "Organization",
     "User",
     "BrandGuideline",
+    "CandidateGuideline",
+    "CandidateGuidelineAuditEntry",
     "ContentSubmission",
     "ComplianceReport",
     "RuleViolation",

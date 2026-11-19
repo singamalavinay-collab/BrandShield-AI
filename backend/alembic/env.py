@@ -29,7 +29,24 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    """Return database connection URL from settings or environment."""
+    """Return database connection URL for migrations with strict precedence:
+    1. os.environ['MIGRATION_DATABASE_URL'] (Administrative connection for production/staging migrations)
+    2. settings.MIGRATION_DATABASE_URL (Pydantic loaded setting from environment)
+    3. config.get_main_option('sqlalchemy.url') (Programmatic test runner option for SQLite fixtures)
+    4. os.environ['DATABASE_URL'] or settings.DATABASE_URL (Development fallback)
+    """
+    env_mig_url = os.getenv("MIGRATION_DATABASE_URL")
+    if env_mig_url and env_mig_url.strip():
+        return env_mig_url.strip()
+
+    settings_mig_url = getattr(settings, "MIGRATION_DATABASE_URL", None)
+    if settings_mig_url and str(settings_mig_url).strip():
+        return str(settings_mig_url).strip()
+
+    cfg_url = config.get_main_option("sqlalchemy.url")
+    if cfg_url and cfg_url.strip() and not cfg_url.strip().startswith("%(here)s"):
+        return cfg_url.strip()
+
     return os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
 

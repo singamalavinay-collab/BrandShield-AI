@@ -25,17 +25,18 @@ logger = logging.getLogger("brandshield.backend")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan context manager for startup and shutdown events."""
+    current_settings = getattr(app.state, "settings", settings)
     logger.info(
         "Initializing %s v%s (%s)",
-        settings.PROJECT_NAME,
-        settings.VERSION,
-        settings.ENVIRONMENT,
+        current_settings.PROJECT_NAME,
+        current_settings.VERSION,
+        current_settings.ENVIRONMENT,
     )
-    if settings.BOOTSTRAP_ON_STARTUP:
+    if current_settings.BOOTSTRAP_ON_STARTUP and current_settings.ENVIRONMENT.lower() != "production":
         from app.core.bootstrap import bootstrap_database
         await bootstrap_database()
     yield
-    logger.info("Shutting down %s", settings.PROJECT_NAME)
+    logger.info("Shutting down %s", current_settings.PROJECT_NAME)
 
 
 def create_application(app_settings: Settings | None = None) -> FastAPI:
@@ -50,6 +51,7 @@ def create_application(app_settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
+    application.state.settings = current_settings
 
     # Configure CORS middleware with environment-specific restrictions
     application.add_middleware(

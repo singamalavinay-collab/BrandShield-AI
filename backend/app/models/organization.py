@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.candidate_guideline import CandidateGuideline
     from app.models.guideline import BrandGuideline
     from app.models.invitation import TeamInvitation
     from app.models.review import AuditEntry
@@ -67,6 +68,12 @@ class Organization(Base):
     )
     guidelines: Mapped[List["BrandGuideline"]] = relationship(
         "BrandGuideline",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    candidate_guidelines: Mapped[List["CandidateGuideline"]] = relationship(
+        "CandidateGuideline",
         back_populates="organization",
         cascade="all, delete-orphan",
         lazy="selectin",

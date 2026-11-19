@@ -59,7 +59,11 @@ class Settings(BaseSettings):
     # Database Configuration (PostgreSQL + asyncpg)
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/brandshield_ai",
-        description="Asynchronous database connection URL",
+        description="Asynchronous application runtime database connection URL",
+    )
+    MIGRATION_DATABASE_URL: Optional[str] = Field(
+        default=None,
+        description="Optional administrative database connection URL for Alembic schema migrations (falls back to DATABASE_URL if unset)",
     )
     DATABASE_POOL_SIZE: int = Field(default=10, description="Database connection pool size")
     DATABASE_MAX_OVERFLOW: int = Field(default=20, description="Database connection pool max overflow")
@@ -113,14 +117,62 @@ class Settings(BaseSettings):
         description="OpenAI API key fallback for semantic compliance evaluation",
     )
     AI_MODEL_NAME: str = Field(
-        default="gemini-1.5-pro",
-        description="Model identifier for LLM compliance reasoning",
+        default="",
+        description="Model identifier for LLM compliance reasoning. Empty by default; operator must configure.",
+    )
+    GEMINI_MAX_RPM: int = Field(
+        default=5,
+        ge=1,
+        le=60,
+        description="Maximum client-side requests per minute for Gemini API calls",
+    )
+    GEMINI_TIMEOUT_SECONDS: float = Field(
+        default=15.0,
+        ge=1.0,
+        le=60.0,
+        description="HTTP request timeout for Gemini API calls",
+    )
+    GEMINI_MAX_RETRIES: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        description="Maximum retry attempts for retryable Gemini API failures",
+    )
+
+    # Media & File Ingestion Boundaries (Phase 0B)
+    MAX_UPLOAD_SIZE_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum allowed upload file size in bytes (strictly 10MB)",
+    )
+    MAX_IMAGE_DIMENSION_PX: int = Field(
+        default=4096,
+        description="Maximum allowed image dimension (width or height) in pixels",
+    )
+    MAX_PDF_PAGES: int = Field(
+        default=20,
+        description="Maximum allowed page count for uploaded PDF documents",
+    )
+    MAX_DOCX_PARAGRAPHS: int = Field(
+        default=500,
+        description="Maximum allowed paragraph count for uploaded Word documents",
+    )
+    MAX_AUDIO_DURATION_SECONDS: float = Field(
+        default=120.0,
+        description="Maximum allowed audio duration in seconds",
+    )
+    MAX_VIDEO_DURATION_SECONDS: float = Field(
+        default=60.0,
+        description="Maximum allowed video duration in seconds",
+    )
+    UPLOAD_TMP_DIR: str = Field(
+        default="/tmp/brandshield_uploads",
+        description="Ephemeral temporary directory for secure upload stream processing",
     )
 
     @property
     def is_ai_available(self) -> bool:
-        """Indicate whether an external LLM provider API key is configured."""
-        return bool(self.GEMINI_API_KEY or self.OPENAI_API_KEY)
+        """Indicate whether an external LLM provider API key and model are configured."""
+        return bool((self.GEMINI_API_KEY and self.AI_MODEL_NAME) or self.OPENAI_API_KEY)
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
