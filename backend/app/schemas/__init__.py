@@ -17,7 +17,9 @@ from app.schemas.candidate_guidelines import (
     CandidateReviewStatus,
 )
 from app.schemas.common import (
+    ClaimStatus,
     ReviewAction,
+    RiskLevel,
     RuleType,
     SeverityLevel,
     SubmissionStatus,
@@ -45,6 +47,7 @@ from app.schemas.submissions import (
     SubmissionResponse,
 )
 from app.schemas.violations import (
+    ClaimVerificationResponse,
     ComplianceReport,
     CorrectionSuggestion,
     EvidenceCitation,
@@ -58,6 +61,8 @@ __all__ = [
     "SubmissionStatus",
     "ReviewAction",
     "TargetChannel",
+    "ClaimStatus",
+    "RiskLevel",
     # Auth & Identity
     "UserRole",
     "LoginRequest",
@@ -91,6 +96,7 @@ __all__ = [
     "CorrectionSuggestion",
     "ViolationDetail",
     "ComplianceReport",
+    "ClaimVerificationResponse",
     # Human Review & Audit
     "ReviewDecision",
     "ReviewDecisionCreate",

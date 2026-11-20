@@ -21,6 +21,7 @@ import {
   SystemDiagnostic,
 } from '../types';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { MediaBadge } from '../components/common/MediaBadge';
 import { AlertBanner } from '../components/common/AlertBanner';
 import { EmptyState } from '../components/common/EmptyState';
 
@@ -185,8 +186,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   className="p-4 hover:bg-slate-50/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-semibold text-slate-900 truncate">{sub.title}</h3>
+                      <MediaBadge mediaType={sub.media_type} />
                       <StatusBadge status={sub.status} />
                       {sub.is_demo ? (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium">

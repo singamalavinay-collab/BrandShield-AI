@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 from langgraph.graph import END, StateGraph
 
 from app.engine.ai_provider import ai_provider
-from app.engine.rules import ALL_RULE_DETECTORS
+from app.engine.rules import ALL_RULE_DETECTORS, VisualRuleDetector
 
 logger = logging.getLogger("brandshield.engine.graph")
 
@@ -18,13 +18,23 @@ class ComplianceState(TypedDict):
     target_channel: str
     target_audience: Optional[str]
     version: int
+    media_type: Optional[str]
+    multimodal_metadata: Optional[Dict[str, Any]]
     guidelines: List[Dict[str, Any]]
     raw_violations: List[Dict[str, Any]]
     validated_violations: List[Dict[str, Any]]
     suggestions: List[Dict[str, Any]]
+    claims: List[Dict[str, Any]]
+    claim_verifications: List[Dict[str, Any]]
     is_compliant: bool
     total_violations: int
     summary: str
+    risk_score: float
+    risk_level: str
+    is_escalated: bool
+    channel_multiplier: float
+    audience_multiplier: float
+    risk_breakdown: Dict[str, Any]
     ai_status: Dict[str, Any]
     error: Optional[str]
 
@@ -58,17 +68,28 @@ def analyze_compliance_node(state: ComplianceState) -> Dict[str, Any]:
     content = state["content"]
     target_channel = state.get("target_channel")
     guidelines = state.get("guidelines", [])
+    multimodal_metadata = state.get("multimodal_metadata") or {}
+    media_type = state.get("media_type") or "text"
     raw_violations: List[Dict[str, Any]] = []
 
     # Run deterministic detectors across all guidelines
     for guideline in guidelines:
         for detector in ALL_RULE_DETECTORS:
             try:
-                findings = detector.evaluate(
-                    content=content,
-                    guideline=guideline,
-                    target_channel=target_channel,
-                )
+                if isinstance(detector, VisualRuleDetector):
+                    findings = detector.evaluate(
+                        content=content,
+                        guideline=guideline,
+                        target_channel=target_channel,
+                        multimodal_metadata=multimodal_metadata,
+                        media_type=media_type,
+                    )
+                else:
+                    findings = detector.evaluate(
+                        content=content,
+                        guideline=guideline,
+                        target_channel=target_channel,
+                    )
                 if findings:
                     raw_violations.extend(findings)
             except Exception as e:
@@ -193,7 +214,71 @@ def validate_evidence_node(state: ComplianceState) -> Dict[str, Any]:
 
 
 # ==============================================================================
-# Node 4: Correction Suggestion Generation
+# Node 4: Claim Verification & Fact Checking Engine (Phase 1, Milestone 4)
+# ==============================================================================
+
+async def verify_claims_node(state: ComplianceState) -> Dict[str, Any]:
+    """Extracts and verifies factual claims against active brand knowledge.
+    
+    Guarantees:
+    - Verifies claims exclusively against active brand guidelines.
+    - Uses Gemini LLM structured extraction when available, falling back safely to deterministic rules.
+    - Classifies claims into VERIFIED, UNSUPPORTED, OUTDATED, CONTRADICTORY, NEEDS_HUMAN_REVIEW.
+    - Flags is_escalated = True on contradictory, ambiguous, or low-confidence assertions.
+    """
+    from app.engine.claim_verifier import verify_claims
+
+    content = state.get("content", "")
+    guidelines = state.get("guidelines", [])
+
+    claim_verifications = await verify_claims(
+        content=content,
+        guidelines=guidelines,
+        ai_provider=ai_provider,
+    )
+
+    return {
+        "claim_verifications": claim_verifications,
+    }
+
+
+# ==============================================================================
+# Node 5: Deterministic Risk Scoring & Deduplication
+# ==============================================================================
+
+def score_risk_node(state: ComplianceState) -> Dict[str, Any]:
+    """Deduplicates validated findings and computes deterministic risk score (Phase 1, Milestone 2 & 4)."""
+    from app.engine.risk_scorer import calculate_risk_score
+
+    validated = state.get("validated_violations", [])
+    target_channel = state.get("target_channel")
+    target_audience = state.get("target_audience")
+    claim_verifications = state.get("claim_verifications", [])
+
+    result = calculate_risk_score(
+        findings=validated,
+        target_channel=target_channel,
+        target_audience=target_audience,
+        deduplicate=True,
+    )
+
+    # Mandatory Safeguards 7 & 8: Propagate claim escalation signals without weakening risk calculations
+    has_claim_escalation = any(c.get("is_escalated", False) for c in claim_verifications)
+    is_escalated = result.is_escalated or has_claim_escalation
+
+    return {
+        "validated_violations": result.deduplicated_findings,
+        "risk_score": result.risk_score,
+        "risk_level": result.risk_level,
+        "is_escalated": is_escalated,
+        "channel_multiplier": result.channel_multiplier,
+        "audience_multiplier": result.audience_multiplier,
+        "risk_breakdown": result.risk_breakdown,
+    }
+
+
+# ==============================================================================
+# Node 6: Correction Suggestion Generation
 # ==============================================================================
 
 def generate_suggestions_node(state: ComplianceState) -> Dict[str, Any]:
@@ -221,7 +306,7 @@ def generate_suggestions_node(state: ComplianceState) -> Dict[str, Any]:
 
 
 # ==============================================================================
-# Node 5: Inspection Report Assembly
+# Node 7: Inspection Report Assembly
 # ==============================================================================
 
 def assemble_report_node(state: ComplianceState) -> Dict[str, Any]:
@@ -229,6 +314,13 @@ def assemble_report_node(state: ComplianceState) -> Dict[str, Any]:
     guidelines = state.get("guidelines", [])
     validated = state.get("validated_violations", [])
     total_violations = len(validated)
+    risk_score = state.get("risk_score", 0.0)
+    risk_level = state.get("risk_level", "LOW")
+    is_escalated = state.get("is_escalated", False)
+    claim_verifications = state.get("claim_verifications", [])
+
+    contradictory_claims = [c for c in claim_verifications if c.get("status") == "CONTRADICTORY"]
+    has_contradictions = len(contradictory_claims) > 0
 
     if not guidelines:
         is_compliant = False
@@ -236,18 +328,22 @@ def assemble_report_node(state: ComplianceState) -> Dict[str, Any]:
             "No active brand guidelines are configured for this organization. "
             "Content compliance cannot be certified until active brand rules are established."
         )
-    elif total_violations == 0:
+    elif total_violations == 0 and not has_contradictions:
         is_compliant = True
+        claims_summary = f" {len(claim_verifications)} factual claim(s) evaluated." if claim_verifications else ""
         summary = (
             "All automated brand compliance checks passed successfully. "
-            "Zero guideline infractions or prohibited terms were identified."
+            f"Zero guideline infractions or prohibited terms were identified.{claims_summary}"
         )
     else:
         is_compliant = False
         unique_rules = {v["rule_name"] for v in validated}
+        escalation_note = " Mandatory senior escalation required." if is_escalated else ""
+        claims_note = f" Identified {len(contradictory_claims)} contradictory claim(s)." if has_contradictions else ""
         summary = (
             f"Compliance inspection identified {total_violations} rule violation(s) across "
-            f"{len(unique_rules)} policy area(s) ({', '.join(list(unique_rules)[:3])}). "
+            f"{len(unique_rules)} policy area(s) ({', '.join(list(unique_rules)[:3])}).{claims_note} "
+            f"Risk Score: {risk_score:.1f} ({risk_level}).{escalation_note} "
             "Remediation suggestions are available. Mandatory human reviewer sign-off is required."
         )
 
@@ -270,6 +366,8 @@ def build_compliance_graph():
     workflow.add_node("retrieve_guidelines", retrieve_guidelines_node)
     workflow.add_node("analyze_compliance", analyze_compliance_node)
     workflow.add_node("validate_evidence", validate_evidence_node)
+    workflow.add_node("verify_claims", verify_claims_node)
+    workflow.add_node("score_risk", score_risk_node)
     workflow.add_node("generate_suggestions", generate_suggestions_node)
     workflow.add_node("assemble_report", assemble_report_node)
 
@@ -277,7 +375,9 @@ def build_compliance_graph():
     workflow.set_entry_point("retrieve_guidelines")
     workflow.add_edge("retrieve_guidelines", "analyze_compliance")
     workflow.add_edge("analyze_compliance", "validate_evidence")
-    workflow.add_edge("validate_evidence", "generate_suggestions")
+    workflow.add_edge("validate_evidence", "verify_claims")
+    workflow.add_edge("verify_claims", "score_risk")
+    workflow.add_edge("score_risk", "generate_suggestions")
     workflow.add_edge("generate_suggestions", "assemble_report")
     workflow.add_edge("assemble_report", END)
 

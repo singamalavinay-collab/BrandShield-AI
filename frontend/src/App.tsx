@@ -24,6 +24,7 @@ import {
   toggleGuidelineActive,
   fetchSubmissions,
   createSubmission,
+  uploadSubmission,
   analyzeSubmission,
   fetchSubmissionReport,
   advanceSubmissionToReview,
@@ -422,6 +423,109 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUploadSubmission = async (
+    formData: FormData,
+    metadata: {
+      title: string;
+      target_channel: any;
+      target_audience?: string;
+      media_type: any;
+      content?: string;
+      author_name: string;
+    },
+    shouldInspect: boolean
+  ) => {
+    setInspectionError(null);
+    let createdSubmission: ContentSubmission | null = null;
+
+    if (backendHealth.is_connected && systemDiagnostic?.database.connected) {
+      const token = ensureAuthenticatedSession();
+      if (!token && shouldInspect) {
+        setInspectionError(
+          'Authentication required: Please sign in or create an account to submit content for compliance evaluation.'
+        );
+        setIsLoginModalOpen(true);
+        return;
+      }
+      try {
+        setIsAnalyzing(shouldInspect);
+        createdSubmission = await uploadSubmission(formData, shouldInspect);
+      } catch (err: unknown) {
+        console.error('API upload submission failed, falling back to local state:', err);
+        setInspectionError(err instanceof Error ? err.message : 'API upload submission failed');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    } else if (backendHealth.is_connected && !systemDiagnostic?.database.connected) {
+      setInspectionError(
+        'Database service is offline. Media draft staged locally, but automated inspection requires an active database.'
+      );
+    }
+
+    if (!createdSubmission) {
+      const newId = `sub-upload-${Date.now().toString().slice(-4)}`;
+      const status = shouldInspect ? 'submitted' : 'draft';
+
+      createdSubmission = {
+        id: newId,
+        title: metadata.title,
+        content: metadata.content || `[${String(metadata.media_type).toUpperCase()} asset: staged locally]`,
+        target_channel: metadata.target_channel,
+        target_audience: metadata.target_audience || 'General Enterprise Audience',
+        status,
+        version: 1,
+        created_at: new Date().toISOString(),
+        author_name: currentUser ? currentUser.full_name : (metadata.author_name || 'Unknown author'),
+        is_demo: isDemoMode,
+        media_type: metadata.media_type,
+        multimodal_metadata: {
+          processing_status: 'completed',
+          media_type: metadata.media_type,
+        },
+      };
+    }
+
+    const submissionId = createdSubmission.id;
+    setSubmissions((prev) => [createdSubmission!, ...prev.filter((s) => s.id !== submissionId)]);
+    setSelectedSubmissionId(submissionId);
+
+    // If submitting for inspection, fetch report and record audit log
+    if (shouldInspect) {
+      if (backendHealth.is_connected && systemDiagnostic?.database.connected) {
+        try {
+          setIsAnalyzing(true);
+          const report = await fetchSubmissionReport(submissionId);
+          setReports((prev) => ({ ...prev, [submissionId]: report }));
+          setInspectionError(null);
+          await refreshAuditLogs();
+        } catch (err: unknown) {
+          console.error('Fetching compliance report failed:', err);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+
+      // Record Audit Entry
+      const audit: AuditEntry = {
+        id: `aud-${Date.now().toString().slice(-4)}`,
+        organization_name: 'BrandShield Primary Org',
+        submission_id: submissionId,
+        previous_status: 'draft',
+        new_status: createdSubmission.status,
+        action_type: 'upload_multimodal_content',
+        actor_id: 'usr-author',
+        actor_type: 'human',
+        actor_name: metadata.author_name,
+        notes: `Submitted ${metadata.media_type} draft for brand compliance inspection and governance sign-off.`,
+        timestamp: new Date().toISOString(),
+      };
+      setAuditLogs((prev) => [audit, ...prev]);
+
+      // Navigate to analysis results
+      setCurrentTab('analysis');
+    }
+  };
+
   // Trigger analysis on an existing submission
   const handleTriggerAnalysis = async (submissionId: string) => {
     setInspectionError(null);
@@ -806,6 +910,7 @@ export const App: React.FC = () => {
           {currentTab === 'submission' && (
             <SubmissionPage
               onSubmitContent={handleSubmitContent}
+              onSubmitUpload={handleUploadSubmission}
               dbOffline={backendHealth.is_connected && !systemDiagnostic?.database.connected}
               currentUser={currentUser}
             />

@@ -58,10 +58,14 @@ async def record_human_review(
     org: Organization = Depends(get_current_organization),
     current_reviewer: User = Depends(get_current_reviewer),
 ) -> Dict[str, Any]:
-    # 1. Fetch submission within active tenant organization
-    stmt = select(ContentSubmission).where(
-        ContentSubmission.id == submission_id,
-        ContentSubmission.organization_id == org.id,
+    # 1. Fetch submission within active tenant organization with pessimistic row lock
+    stmt = (
+        select(ContentSubmission)
+        .where(
+            ContentSubmission.id == submission_id,
+            ContentSubmission.organization_id == org.id,
+        )
+        .with_for_update()
     )
     result = await session.execute(stmt)
     submission = result.scalar_one_or_none()
@@ -72,35 +76,83 @@ async def record_human_review(
             detail=f"Content submission with id '{submission_id}' not found.",
         )
 
-    # Enforce workflow state machine: review can only be conducted on under_human_review submissions
+    # Re-check workflow state machine under the lock:
     if submission.status != SubmissionStatus.UNDER_HUMAN_REVIEW.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Cannot record review: Submission is currently in '{submission.status}' status. "
-                "Submissions must complete automated analysis and enter 'under_human_review' status "
-                "before human governance decisions can be recorded."
+                "Submissions must be in 'under_human_review' status to record human governance decisions. "
+                "If another reviewer recently completed a review, the submission may have already transitioned."
             ),
         )
 
+    # Fetch compliance report strictly for the EXACT current submission version
+    rep_stmt = (
+        select(ComplianceReport)
+        .where(
+            ComplianceReport.submission_id == submission.id,
+            ComplianceReport.submission_version == submission.version,
+        )
+        .order_by(ComplianceReport.analyzed_at.desc())
+        .limit(1)
+    )
+    rep_res = await session.execute(rep_stmt)
+    current_report = rep_res.scalar_one_or_none()
+
+    # Stale / Missing Report Guard:
+    # Human approval strictly requires a complete, valid report for the CURRENT submission version.
+    if payload.action in {ReviewAction.APPROVE, ReviewAction.EDIT_AND_APPROVE}:
+        if not current_report:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot approve submission: No compliance report exists for current submission version (v{submission.version}). "
+                    "Content must complete automated compliance analysis before human approval can be granted."
+                ),
+            )
+        if current_report.total_violations is None or current_report.risk_score is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot approve submission: Compliance report for version v{submission.version} is incomplete or corrupt. "
+                    "Please re-run automated compliance inspection before granting approval."
+                ),
+            )
+
+    # Enforce Escalation Governance (Phase 1, Milestone 2)
+    is_escalated = bool(current_report and current_report.is_escalated)
+    is_admin = current_reviewer.role == "ADMIN"
+
+    if is_escalated:
+        # Standard reviewers cannot approve escalated submissions; only trusted ADMIN role can approve
+        if payload.action in {ReviewAction.APPROVE, ReviewAction.EDIT_AND_APPROVE}:
+            if not is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        f"Access denied: Submission is marked as escalated (risk score: {current_report.risk_score}, "
+                        f"risk level: {current_report.risk_level}). Standard reviewers cannot approve escalated content. "
+                        "An ADMIN role is required to approve this submission. "
+                        "Reviewers may reject or request revisions."
+                    ),
+                )
+            # Escalated approvals require mandatory human feedback explaining approval justification
+            if not payload.feedback or not payload.feedback.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Escalated approvals require mandatory human review feedback explaining the approval justification.",
+                )
+
     # Enforce rule: Cannot Approve As-Is if unresolved mandatory violations exist without override
     if payload.action == ReviewAction.APPROVE:
-        rep_stmt = (
-            select(ComplianceReport)
-            .where(ComplianceReport.submission_id == submission.id)
-            .order_by(ComplianceReport.analyzed_at.desc())
-            .limit(1)
-        )
-        rep_res = await session.execute(rep_stmt)
-        latest_report = rep_res.scalar_one_or_none()
-
-        if latest_report and latest_report.total_violations > 0:
+        if current_report and current_report.total_violations > 0:
             if not payload.override_reason or not payload.override_reason.strip():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
                         f"Cannot approve content as-is: Active unresolved rule violations exist "
-                        f"({latest_report.total_violations} violations flagged). "
+                        f"({current_report.total_violations} violations flagged). "
                         "Reviewer must resolve violations using 'edit_and_approve', request revisions, "
                         "or supply an explicit, authorized 'override_reason'."
                     ),
@@ -164,8 +216,12 @@ async def record_human_review(
             "action": payload.action.value,
             "review_id": str(decision.id),
             "reviewer_email": current_reviewer.email,
+            "reviewer_role": current_reviewer.role,
             "submission_version": submission.version,
             "override_reason": payload.override_reason,
+            "is_escalated": is_escalated,
+            "risk_score": current_report.risk_score if current_report else None,
+            "risk_level": current_report.risk_level if current_report else None,
         },
     )
     session.add(audit)

@@ -121,9 +121,10 @@ async def bootstrap_database() -> None:
     """
     logger.info("Verifying database schema and initial seed data...")
 
-    # Ensure tables exist
+    # Ensure tables exist (for SQLite local development / tests)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        if conn.dialect.name == "sqlite":
+            await conn.run_sync(Base.metadata.create_all)
 
     async with async_session_factory() as session:
         # 1. Organization

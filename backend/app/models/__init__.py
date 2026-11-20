@@ -4,6 +4,7 @@ from app.core.database import Base, ImmutableAuditError
 from app.models.candidate_guideline import CandidateGuideline
 from app.models.candidate_guideline_audit import CandidateGuidelineAuditEntry
 from app.models.compliance import (
+    ClaimVerification,
     ComplianceReport,
     CorrectionSuggestion,
     EvidenceCitation,
@@ -26,6 +27,7 @@ __all__ = [
     "CandidateGuidelineAuditEntry",
     "ContentSubmission",
     "ComplianceReport",
+    "ClaimVerification",
     "RuleViolation",
     "EvidenceCitation",
     "CorrectionSuggestion",

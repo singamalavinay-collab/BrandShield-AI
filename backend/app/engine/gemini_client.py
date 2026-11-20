@@ -99,7 +99,9 @@ class GeminiClientError(Exception):
         is_retryable: bool = False,
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
-        super().__init__(sanitize_text(message))
+        cleaned_msg = sanitize_text(message)
+        super().__init__(cleaned_msg)
+        self.message = cleaned_msg
         self.error_code = error_code
         self.status_code = status_code
         self.retry_after = retry_after
@@ -491,3 +493,179 @@ class GeminiClient:
             error_code=GeminiErrorCode.SERVICE_UNAVAILABLE,
             is_retryable=False,
         )
+
+    async def upload_file(
+        self,
+        file_path: Union[str, Any],
+        mime_type: str,
+        display_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Upload a file to Google Gemini Files API.
+        
+        Guarantees:
+        - Header-only authentication via 'x-goog-api-key'.
+        - Rate limiting via SlidingWindowRateLimiter lease.
+        - Supports resumable upload protocol and simple response mocks.
+        - Never logs raw bytes or API credentials.
+        """
+        from pathlib import Path
+        p = Path(file_path)
+        if not p.exists() or not p.is_file():
+            raise FileNotFoundError(f"File not found: {p}")
+        
+        file_size = p.stat().st_size
+        clean_name = display_name or p.name
+        
+        if not self.api_key:
+            raise GeminiClientError(
+                message="Cannot upload file to Gemini Files API: GEMINI_API_KEY is not configured.",
+                error_code=GeminiErrorCode.UNCONFIGURED,
+            )
+
+        client = self._get_client()
+        url = f"{self.base_url}/upload/v1beta/files"
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "X-Goog-Upload-Protocol": "resumable",
+            "X-Goog-Upload-Command": "start",
+            "X-Goog-Upload-Header-Content-Length": str(file_size),
+            "X-Goog-Upload-Header-Content-Type": mime_type,
+            "Content-Type": "application/json",
+            "User-Agent": "BrandShield-AI/1.0",
+        }
+        body = {"file": {"display_name": clean_name}}
+
+        async with self.rate_limiter.lease(max_wait_budget=self.timeout_seconds):
+            resp = await client.post(url, json=body, headers=headers)
+
+        if resp.status_code in (200, 201):
+            resp_data = resp.json() if resp.content else {}
+            if "file" in resp_data:
+                return resp_data["file"]
+
+            upload_url = resp.headers.get("x-goog-upload-url") or resp.headers.get("X-Goog-Upload-URL")
+            if not upload_url:
+                raise GeminiClientError(
+                    message="Missing X-Goog-Upload-URL header in Gemini Files API upload initialization",
+                    error_code=GeminiErrorCode.INVALID_REQUEST,
+                    status_code=resp.status_code,
+                )
+
+            with open(p, "rb") as f:
+                file_bytes = f.read()
+
+            upload_headers = {
+                "Content-Length": str(file_size),
+                "X-Goog-Upload-Offset": "0",
+                "X-Goog-Upload-Command": "upload, finalize",
+                "User-Agent": "BrandShield-AI/1.0",
+            }
+            async with self.rate_limiter.lease(max_wait_budget=self.timeout_seconds):
+                upload_resp = await client.post(upload_url, content=file_bytes, headers=upload_headers)
+
+            if upload_resp.status_code in (200, 201):
+                upload_data = upload_resp.json() if upload_resp.content else {}
+                file_obj = upload_data.get("file", upload_data)
+                logger.info("Successfully uploaded file %s to Gemini Files API (%s)", clean_name, file_obj.get("name"))
+                return file_obj
+
+            err_code, err_msg, _, _ = self.classify_error(upload_resp.status_code, upload_resp.json() if upload_resp.content else {}, upload_resp.headers)
+            raise GeminiClientError(
+                message=f"Gemini Files API upload chunk failed: {err_msg}",
+                error_code=err_code,
+                status_code=upload_resp.status_code,
+            )
+
+        err_code, err_msg, _, _ = self.classify_error(resp.status_code, resp.json() if resp.content else {}, resp.headers)
+        raise GeminiClientError(
+            message=f"Gemini Files API upload init failed: {err_msg}",
+            error_code=err_code,
+            status_code=resp.status_code,
+        )
+
+    async def get_file(self, file_name: str) -> Dict[str, Any]:
+        """Fetch metadata for a remote file from Gemini Files API."""
+        if not self.api_key:
+            raise GeminiClientError(
+                message="Cannot retrieve Gemini file: GEMINI_API_KEY is not configured.",
+                error_code=GeminiErrorCode.UNCONFIGURED,
+            )
+
+        clean_name = file_name.replace("models/", "")
+        if not clean_name.startswith("files/"):
+            clean_name = f"files/{clean_name}"
+
+        url = f"{self.base_url}/v1beta/{clean_name}"
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "User-Agent": "BrandShield-AI/1.0",
+        }
+
+        client = self._get_client()
+        async with self.rate_limiter.lease(max_wait_budget=self.timeout_seconds):
+            resp = await client.get(url, headers=headers)
+
+        if resp.status_code == 200:
+            return resp.json()
+
+        err_code, err_msg, _, _ = self.classify_error(resp.status_code, resp.json() if resp.content else {}, resp.headers)
+        raise GeminiClientError(
+            message=f"Failed to fetch Gemini file {clean_name}: {err_msg}",
+            error_code=err_code,
+            status_code=resp.status_code,
+        )
+
+    async def poll_file_active(
+        self,
+        file_name: str,
+        max_wait_seconds: float = 30.0,
+        poll_interval: float = 1.0,
+    ) -> Dict[str, Any]:
+        """Poll remote file until state is ACTIVE."""
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < max_wait_seconds:
+            file_info = await self.get_file(file_name)
+            state = file_info.get("state", "ACTIVE")
+            if state == "ACTIVE":
+                return file_info
+            elif state == "FAILED":
+                err = file_info.get("error", {})
+                raise GeminiClientError(
+                    message=f"Gemini remote file processing failed: {err.get('message', 'Unknown error')}",
+                    error_code=GeminiErrorCode.INVALID_REQUEST,
+                    details=file_info,
+                )
+            await asyncio.sleep(poll_interval)
+
+        raise GeminiClientError(
+            message=f"Gemini remote file processing timed out after {max_wait_seconds}s for {file_name}",
+            error_code=GeminiErrorCode.SERVICE_UNAVAILABLE,
+        )
+
+    async def delete_file(self, file_name: str) -> bool:
+        """Delete a remote file from Gemini Files API."""
+        if not self.api_key:
+            return False
+
+        clean_name = file_name.replace("models/", "")
+        if not clean_name.startswith("files/"):
+            clean_name = f"files/{clean_name}"
+
+        url = f"{self.base_url}/v1beta/{clean_name}"
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "User-Agent": "BrandShield-AI/1.0",
+        }
+
+        client = self._get_client()
+        try:
+            async with self.rate_limiter.lease(max_wait_budget=self.timeout_seconds):
+                resp = await client.delete(url, headers=headers)
+            if resp.status_code in (200, 204, 404):
+                logger.info("Successfully deleted remote Gemini file: %s", clean_name)
+                return True
+            logger.warning("Failed to delete Gemini file %s (HTTP %d)", clean_name, resp.status_code)
+            return False
+        except Exception as e:
+            logger.warning("Error deleting Gemini file %s: %s", clean_name, sanitize_text(str(e)))
+            return False

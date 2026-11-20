@@ -81,7 +81,7 @@ async def api_async_session():
             organization_id=org.id,
             name="BrandShield Capitalization Standard",
             rule_type="trademark_usage",
-            severity="critical",
+            severity="medium",
             description="Always capitalize B and S in BrandShield AI.",
             directive="The product name must be written strictly as 'BrandShield AI'. Never lowercase.",
             examples_approved=["BrandShield AI protects your brand."],

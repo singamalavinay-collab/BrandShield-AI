@@ -9,6 +9,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.candidate_guideline import CandidateGuideline
+    from app.models.compliance import ClaimVerification
     from app.models.guideline import BrandGuideline
     from app.models.invitation import TeamInvitation
     from app.models.review import AuditEntry
@@ -77,6 +78,12 @@ class Organization(Base):
         back_populates="organization",
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+    claim_verifications: Mapped[List["ClaimVerification"]] = relationship(
+        "ClaimVerification",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        lazy="select",
     )
     submissions: Mapped[List["ContentSubmission"]] = relationship(
         "ContentSubmission",

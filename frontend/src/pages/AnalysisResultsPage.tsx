@@ -7,6 +7,11 @@ import {
   ArrowRight,
   Scale,
   Sparkles,
+  Box,
+  Clock,
+  Palette,
+  Info,
+  AlertCircle,
 } from 'lucide-react';
 import {
   NavigationTab,
@@ -14,6 +19,7 @@ import {
   ComplianceReport,
 } from '../types';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { MediaBadge } from '../components/common/MediaBadge';
 import { EmptyState } from '../components/common/EmptyState';
 
 interface AnalysisResultsPageProps {
@@ -181,8 +187,11 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
             <FileText className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Inspecting Submission
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Inspecting Submission
+              </span>
+              <MediaBadge mediaType={currentSubmission.media_type} />
             </div>
             <h2 className="text-sm font-bold text-slate-900 truncate">{currentSubmission.title}</h2>
           </div>
@@ -213,6 +222,71 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
           </select>
         </div>
       </div>
+
+      {/* Multimodal Asset Information Card (for media inputs) */}
+      {currentSubmission.media_type && currentSubmission.media_type !== 'text' && (
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-subtle p-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <MediaBadge mediaType={currentSubmission.media_type} />
+              <span className="text-xs font-bold text-slate-800">
+                {currentSubmission.multimodal_metadata?.original_filename || `${currentSubmission.media_type.toUpperCase()} Uploaded Asset`}
+              </span>
+            </div>
+            {currentSubmission.multimodal_metadata?.analysis_engine && (
+              <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+                Engine: {currentSubmission.multimodal_metadata.analysis_engine}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+            {currentSubmission.file_size_bytes && (
+              <span>Size: <strong className="text-slate-700">{Math.round(currentSubmission.file_size_bytes / 1024)} KB</strong></span>
+            )}
+            {currentSubmission.file_hash_sha256 && (
+              <span>SHA-256: <code className="font-mono text-[10px] text-slate-700 bg-slate-50 px-1 py-0.5 rounded border border-slate-200">{currentSubmission.file_hash_sha256.slice(0, 12)}...</code></span>
+            )}
+            {currentSubmission.multimodal_metadata?.dimensions && (
+              <span>Dimensions: <strong className="text-slate-700">{currentSubmission.multimodal_metadata.dimensions[0]}×{currentSubmission.multimodal_metadata.dimensions[1]}</strong></span>
+            )}
+            {currentSubmission.multimodal_metadata?.duration_seconds && (
+              <span>Duration: <strong className="text-slate-700">{currentSubmission.multimodal_metadata.duration_seconds}s</strong></span>
+            )}
+            {currentSubmission.multimodal_metadata?.page_count && (
+              <span>Pages: <strong className="text-slate-700">{currentSubmission.multimodal_metadata.page_count}</strong></span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Honest Status Banners for Multimodal AI State */}
+      {currentSubmission.multimodal_metadata?.processing_status === 'UNAVAILABLE' && (
+        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">AI Multimodal Perception Offline:</span> The upstream Gemini vision/audio model was unreachable. Deterministic brand compliance heuristics and extracted text/metadata evaluation were applied without fabricating visual findings.
+          </div>
+        </div>
+      )}
+
+      {currentSubmission.multimodal_metadata?.processing_status === 'OCR_REQUIRED' && (
+        <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-900 text-xs flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">Optical Character Recognition Advised:</span> Visual asset contains embedded typography or graphics that require high-resolution OCR parsing for exhaustive policy evaluation.
+          </div>
+        </div>
+      )}
+
+      {currentSubmission.multimodal_metadata?.processing_status === 'FAILED' && (
+        <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-900 flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">Multimodal Extraction Incomplete:</span> Asset extraction encountered an issue ({currentSubmission.multimodal_metadata.fallback_reason || 'File decoding or parsing error'}).
+          </div>
+        </div>
+      )}
 
       {/* Optional Inspection Error Alert */}
       {inspectionError && (
@@ -429,6 +503,49 @@ export const AnalysisResultsPage: React.FC<AnalysisResultsPageProps> = ({
                         {violation.rule_type.replace(/_/g, ' ')}
                       </span>
                     </div>
+
+                    {/* Visual & Multimodal Observation Tags (Bounding Box, Timestamp, Entity) */}
+                    {(violation.bounding_box || violation.timestamp_seconds !== undefined || violation.brand_entity) && (
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                        {violation.bounding_box && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <Box className="w-3 h-3 text-indigo-500" />
+                            <span>Box: [{violation.bounding_box.map((n) => typeof n === 'number' ? n.toFixed(2) : n).join(', ')}]</span>
+                          </span>
+                        )}
+                        {violation.timestamp_seconds !== undefined && violation.timestamp_seconds !== null && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                            <Clock className="w-3 h-3 text-blue-500" />
+                            <span>⏱ {Math.floor(violation.timestamp_seconds / 60).toString().padStart(2, '0')}:{(violation.timestamp_seconds % 60).toFixed(3).padStart(6, '0')}</span>
+                          </span>
+                        )}
+                        {violation.brand_entity && (
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                            <span>Entity: {violation.brand_entity}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Detected Brand Palette Swatches if applicable */}
+                    {(() => {
+                      const hexMatches = violation.explanation.match(/#([0-9A-Fa-f]{6})/g);
+                      if (!hexMatches || hexMatches.length === 0) return null;
+                      return (
+                        <div className="flex items-center gap-2 mb-2 p-1.5 bg-slate-50 rounded border border-slate-200 text-[11px]">
+                          <Palette className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                          <span className="font-medium text-slate-700">Brand Palette:</span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {Array.from(new Set(hexMatches)).map((hex) => (
+                              <span key={hex} className="inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded bg-white border border-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ backgroundColor: hex }} />
+                                {hex}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Flagged Text Box */}
                     <div className="mb-2.5 p-2 rounded bg-rose-50/60 border border-rose-100 text-xs">

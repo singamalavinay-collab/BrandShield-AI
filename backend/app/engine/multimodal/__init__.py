@@ -19,6 +19,14 @@ from app.engine.multimodal.temp_manager import (
     safe_cleanup_file,
     get_upload_temp_dir,
 )
+from app.engine.multimodal.service import (
+    MultimodalAnalysisResult,
+    MultimodalProcessingStatus,
+    MultimodalService,
+    SpokenDialogueSegment,
+    VisualObservation,
+    multimodal_service,
+)
 
 __all__ = [
     "MediaType",
@@ -34,4 +42,10 @@ __all__ = [
     "write_stream_to_temp",
     "safe_cleanup_file",
     "get_upload_temp_dir",
+    "MultimodalAnalysisResult",
+    "MultimodalProcessingStatus",
+    "MultimodalService",
+    "SpokenDialogueSegment",
+    "VisualObservation",
+    "multimodal_service",
 ]

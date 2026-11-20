@@ -19,6 +19,7 @@ import {
   AuthUser,
 } from '../types';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { MediaBadge } from '../components/common/MediaBadge';
 import { AlertBanner } from '../components/common/AlertBanner';
 import { EmptyState } from '../components/common/EmptyState';
 
@@ -361,15 +362,50 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-subtle p-5 space-y-4">
             <div className="pb-3 border-b border-slate-100 flex items-start justify-between gap-2">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Target Channel: {pendingSubmission.target_channel.replace(/_/g, ' ')}
-                </span>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Target Channel: {pendingSubmission.target_channel.replace(/_/g, ' ')}
+                  </span>
+                  <MediaBadge mediaType={pendingSubmission.media_type} />
+                </div>
                 <h3 className="text-base font-bold text-slate-900 mt-0.5">
                   {pendingSubmission.title}
                 </h3>
               </div>
               <StatusBadge status={pendingSubmission.status} />
             </div>
+
+            {/* Multimodal Asset Metadata if applicable */}
+            {pendingSubmission.media_type && pendingSubmission.media_type !== 'text' && (
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                <div className="flex justify-between font-medium">
+                  <span className="text-slate-500">Asset File:</span>
+                  <span className="text-slate-800 font-semibold truncate max-w-[200px]">
+                    {pendingSubmission.multimodal_metadata?.original_filename || `${pendingSubmission.media_type} upload`}
+                  </span>
+                </div>
+                {pendingSubmission.file_size_bytes && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Asset Size:</span>
+                    <span>{Math.round(pendingSubmission.file_size_bytes / 1024)} KB</span>
+                  </div>
+                )}
+                {pendingSubmission.file_hash_sha256 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">SHA-256:</span>
+                    <code className="font-mono text-[10px] text-slate-700">{pendingSubmission.file_hash_sha256.slice(0, 12)}...</code>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Honest Status Alert for Reviewers */}
+            {pendingSubmission.multimodal_metadata?.processing_status === 'UNAVAILABLE' && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>AI vision service was offline during inspection; offline heuristics were used.</span>
+              </div>
+            )}
 
             <div className="space-y-2 text-xs text-slate-600">
               <div className="flex justify-between">
@@ -405,13 +441,33 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                   Identified Violations ({currentReport.violations.length})
                 </span>
-                <ul className="space-y-1.5 text-xs text-slate-600">
+                <ul className="space-y-2 text-xs text-slate-600">
                   {currentReport.violations.map((v) => (
-                    <li key={v.id} className="flex items-start gap-1.5">
-                      <span className="text-rose-500 font-bold">•</span>
-                      <span>
-                        <strong className="text-slate-800">{v.rule_name}</strong>: {v.explanation}
-                      </span>
+                    <li key={v.id} className="p-2 rounded bg-rose-50/40 border border-rose-100/60 space-y-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="font-semibold text-slate-800 flex items-center gap-1">
+                          <span className="text-rose-500 font-bold">•</span>
+                          {v.rule_name}
+                        </span>
+                        <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {v.rule_type.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-3 leading-snug">{v.explanation}</p>
+                      {(v.bounding_box || v.timestamp_seconds !== undefined) && (
+                        <div className="flex items-center gap-1.5 pl-3 pt-0.5 text-[10px]">
+                          {v.bounding_box && (
+                            <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1 rounded font-mono">
+                              Box: [{v.bounding_box.map((n) => typeof n === 'number' ? n.toFixed(2) : n).join(', ')}]
+                            </span>
+                          )}
+                          {v.timestamp_seconds !== undefined && v.timestamp_seconds !== null && (
+                            <span className="bg-blue-50 text-blue-700 border border-blue-200 px-1 rounded font-mono">
+                              ⏱ {Math.floor(v.timestamp_seconds / 60).toString().padStart(2, '0')}:{(v.timestamp_seconds % 60).toFixed(3).padStart(6, '0')}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

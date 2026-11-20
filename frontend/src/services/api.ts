@@ -89,7 +89,9 @@ async function apiRequest<T>(
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
+    if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+      delete headers['Content-Type'];
+    } else if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
 
@@ -229,6 +231,11 @@ export async function fetchSubmissions(statusFilter?: string): Promise<ContentSu
     author_id?: string;
     author_name?: string;
     latest_review_id?: string;
+    media_type?: string;
+    file_hash_sha256?: string;
+    mime_type?: string;
+    file_size_bytes?: number;
+    multimodal_metadata?: Record<string, any>;
   }>>(`/api/v1/submissions${query}`, { method: 'GET' });
 
   // Map to frontend interface with author label
@@ -244,6 +251,11 @@ export async function fetchSubmissions(statusFilter?: string): Promise<ContentSu
     author_name: item.author_name || 'Unknown author',
     latest_review_id: item.latest_review_id,
     is_demo: false,
+    media_type: (item.media_type as any) || 'text',
+    file_hash_sha256: item.file_hash_sha256 || null,
+    mime_type: item.mime_type || null,
+    file_size_bytes: item.file_size_bytes || null,
+    multimodal_metadata: item.multimodal_metadata || {},
   }));
 }
 
@@ -260,6 +272,11 @@ export async function fetchSubmission(id: string): Promise<ContentSubmission> {
     author_id?: string;
     author_name?: string;
     latest_review_id?: string;
+    media_type?: string;
+    file_hash_sha256?: string;
+    mime_type?: string;
+    file_size_bytes?: number;
+    multimodal_metadata?: Record<string, any>;
   }>(`/api/v1/submissions/${id}`, { method: 'GET' });
 
   return {
@@ -274,6 +291,11 @@ export async function fetchSubmission(id: string): Promise<ContentSubmission> {
     author_name: item.author_name || 'Unknown author',
     latest_review_id: item.latest_review_id,
     is_demo: false,
+    media_type: (item.media_type as any) || 'text',
+    file_hash_sha256: item.file_hash_sha256 || null,
+    mime_type: item.mime_type || null,
+    file_size_bytes: item.file_size_bytes || null,
+    multimodal_metadata: item.multimodal_metadata || {},
   };
 }
 
@@ -294,6 +316,11 @@ export async function createSubmission(
     author_id?: string;
     author_name?: string;
     latest_review_id?: string;
+    media_type?: string;
+    file_hash_sha256?: string;
+    mime_type?: string;
+    file_size_bytes?: number;
+    multimodal_metadata?: Record<string, any>;
   }>(`/api/v1/submissions${query}`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -311,6 +338,11 @@ export async function createSubmission(
     author_name: item.author_name || 'Unknown author',
     latest_review_id: item.latest_review_id,
     is_demo: false,
+    media_type: (item.media_type as any) || 'text',
+    file_hash_sha256: item.file_hash_sha256 || null,
+    mime_type: item.mime_type || null,
+    file_size_bytes: item.file_size_bytes || null,
+    multimodal_metadata: item.multimodal_metadata || {},
   };
 }
 
@@ -327,6 +359,11 @@ export async function submitDraftForInspection(id: string): Promise<ContentSubmi
     author_id?: string;
     author_name?: string;
     latest_review_id?: string;
+    media_type?: string;
+    file_hash_sha256?: string;
+    mime_type?: string;
+    file_size_bytes?: number;
+    multimodal_metadata?: Record<string, any>;
   }>(`/api/v1/submissions/${id}/submit`, {
     method: 'POST',
   });
@@ -343,6 +380,61 @@ export async function submitDraftForInspection(id: string): Promise<ContentSubmi
     author_name: item.author_name || 'Unknown author',
     latest_review_id: item.latest_review_id,
     is_demo: false,
+    media_type: (item.media_type as any) || 'text',
+    file_hash_sha256: item.file_hash_sha256 || null,
+    mime_type: item.mime_type || null,
+    file_size_bytes: item.file_size_bytes || null,
+    multimodal_metadata: item.multimodal_metadata || {},
+  };
+}
+
+export async function uploadSubmission(
+  formData: FormData,
+  submitForInspection = false
+): Promise<ContentSubmission> {
+  if (!formData.has('submit_for_inspection')) {
+    formData.append('submit_for_inspection', String(submitForInspection));
+  }
+
+  const item = await apiRequest<{
+    id: string;
+    title: string;
+    content: string;
+    target_channel: string;
+    target_audience?: string;
+    status: string;
+    version: number;
+    created_at: string;
+    author_id?: string;
+    author_name?: string;
+    latest_review_id?: string;
+    media_type?: string;
+    file_hash_sha256?: string;
+    mime_type?: string;
+    file_size_bytes?: number;
+    multimodal_metadata?: Record<string, any>;
+  }>('/api/v1/submissions/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  return {
+    id: item.id,
+    title: item.title,
+    content: item.content,
+    target_channel: item.target_channel as ContentSubmission['target_channel'],
+    target_audience: item.target_audience || 'General Enterprise Audience',
+    status: item.status as ContentSubmission['status'],
+    version: item.version,
+    created_at: item.created_at,
+    author_name: item.author_name || 'Unknown author',
+    latest_review_id: item.latest_review_id,
+    is_demo: false,
+    media_type: (item.media_type as any) || 'text',
+    file_hash_sha256: item.file_hash_sha256 || null,
+    mime_type: item.mime_type || null,
+    file_size_bytes: item.file_size_bytes || null,
+    multimodal_metadata: item.multimodal_metadata || {},
   };
 }
 

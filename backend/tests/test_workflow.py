@@ -74,7 +74,7 @@ async def workflow_session():
             organization_id=org.id,
             name="No Unsubstantiated Absolute Claims",
             rule_type="prohibited_claims",
-            severity="critical",
+            severity="medium",
             directive="Do not use words like '100% infallible' without legal sign-off.",
             description="Protect against regulatory false advertising claims.",
             is_active=True,

@@ -1,219 +1,240 @@
 # BrandShield AI — Intelligent Brand-Governance Platform
 
-> **CodeNova India 2026 Round 2 Project**  
-> *An agentic, evidence-backed brand compliance platform with inviolable human-in-the-loop governance.*
+> **CodeNova India Round 3 Release**  
+> *An enterprise-grade, agentic brand compliance platform with multimodal verification and inviolable human-in-the-loop governance.*
 
 ---
 
-## 1. Project Overview & Purpose
+## 1. Project Overview & Mission
 
-**BrandShield AI** is an enterprise-grade brand governance platform designed to ensure that marketing copy, social media announcements, advertisements, customer communications, and technical documentation adhere strictly to official brand standards, tone directives, messaging rules, and verified facts.
+**BrandShield AI** is an enterprise brand-governance system engineered to inspect, audit, and verify corporate communications across diverse media before public dissemination. It ensures that marketing copy, announcements, social campaigns, advertising creative, visual assets, audio recordings, video content, and executive presentations adhere strictly to approved brand standards, tone directives, trademark conventions, and verified factual evidence.
 
-In large organizations and fast-paced marketing teams, content is published across numerous channels. Fragmented guidelines and manual editorial review often lead to:
-- Inconsistent tone and voice across channels.
-- Inaccurate product claims and factual errors.
-- Unapproved terminology and prohibited competitor comparisons.
-- High review latency and editorial bottlenecks.
+In modern multi-channel marketing, editorial teams struggle with:
+- **Cross-Modality Inconsistencies:** Text, imagery, spoken dialogue, and video creative reviewed in isolation without holistic brand enforcement.
+- **Unverified & Outdated Claims:** Product statements and metrics that contradict current approved facts or lack empirical backing.
+- **Visual Brand Drift:** Improper logo placement, unapproved color palette deviations, and missing mandatory disclaimers.
+- **Editorial Bottlenecks & Audit Exposure:** Manual review queues with zero cryptographic provenance or immutable audit logging.
 
-BrandShield AI solves this by combining **hybrid semantic retrieval (`pgvector`)**, **deterministic rule checks**, and **LangGraph agentic orchestration** to rapidly audit submitted content, identify violations, quote verifiable evidence, and synthesize actionable corrections — while maintaining an unbreakable architectural rule:
+BrandShield AI resolves this through a hybrid pipeline combining **deterministic pattern matching**, **multimodal computer vision and speech transcription**, **stateful LangGraph agentic orchestration**, and **PostgreSQL Row-Level Security (RLS)** — anchored by an unbreakable architectural invariant:
 
-> **Core Governance Invariant**:  
-> The AI agent evaluates, flags violations, and suggests corrections, but **never makes final approval decisions**. Final publishing authorization requires explicit human review and sign-off.
-
----
-
-## 2. Core Product Workflow
-
-BrandShield AI guides content through a 7-stage governance pipeline:
-
-```text
-1. Brand Guidelines Ingestion
-   └── Upload & index brand guidelines, approved facts, forbidden terminology, tone rules.
-
-2. Content Submission
-   └── Authors submit copy (social posts, ads, emails, press releases) with channel metadata.
-
-3. Hybrid AI Compliance Check
-   └── Vector similarity search (pgvector) + deterministic regex/keyword rule checking.
-
-4. Violation Identification & Citation
-   └── Highlighting exact text spans, severity scoring, and citing source guideline clauses.
-
-5. Evidence-Backed Correction Studio
-   └── Context-aware alternatives with side-by-side diffs adhering strictly to guidelines.
-
-6. Human-in-the-Loop Review
-   └── Human reviewer reviews, edits, approves, rejects, or requests author revision.
-
-7. Versioning & Audit Trail
-   └── Immutable history tracking every iteration, AI analysis report, and human decision.
-```
+> **Inviolable Governance Invariant**:  
+> The AI agent analyzes, categorizes risks, extracts claims, and suggests corrections, but **never authorizes final approval**. Publishing decisions strictly require explicit human review and cryptographic sign-off. Creator self-approval is blocked at the database and API layer (`403 Forbidden`).
 
 ---
 
-## 3. Technology Stack
+## 2. Production Deployment Status & Endpoints
 
-### Frontend
-- **Framework**: React 19 / 18 with TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **Component Architecture**: Modular, accessible, responsive UI with dedicated review consoles
+| Component | Target Platform | Live Public Endpoint | Current Status |
+| :--- | :--- | :--- | :--- |
+| **Frontend SPA** | Vercel | [https://brandshield-ai-original.vercel.app/](https://brandshield-ai-original.vercel.app/) | Deployed & Active (SPA Client) |
+| **Backend API** | Render | [https://brandshield-ai-64k9.onrender.com](https://brandshield-ai-64k9.onrender.com) | Deployed & Operational (`/health` HTTP 200) |
+| **Database** | Neon Serverless | `ep-dry-term-aork65r1...neon.tech/neondb` | Synchronized at Migration Revision `0007` |
 
-### Backend
-- **Runtime**: Python (3.14 compatible, verified FastAPI 0.141.1, Pydantic 2.13.4, Uvicorn 0.52.3)
-- **API Framework**: FastAPI (asynchronous ASGI framework)
-- **Data Validation**: Pydantic v2
-- **Testing**: pytest, pytest-asyncio, httpx
-
-### Database & Vector Storage
-- **Database**: Managed PostgreSQL
-- **Vector Indexing**: `pgvector` extension for high-performance cosine/inner-product similarity search
-
-### AI & Agentic Orchestration
-- **Agent Orchestrator**: LangGraph (stateful graph with human-in-the-loop transition gates)
-- **Provider Abstraction**: Decoupled LLM and Embedding provider interface (supporting Gemini, OpenAI, Anthropic, or local endpoints)
-- **Structured Outputs**: Strict Pydantic-enforced JSON validation for violation schemas
+> [!NOTE]
+> **Deployment Status Distinction:**  
+> The live cloud endpoints above currently host the verified production baseline deployment with core authentication, guideline management, and initial inspection routes. The complete **CodeNova India Round 3 release** (featuring the unified 5-modality upload pipeline, candidate guideline extraction, and claim verification engine) is verified and tested locally, and will become active on the live URLs upon final repository synchronization and cloud redeployment.
+>
+> **AI Provider Configuration:**  
+> The system is designed with **free-tier safe fallback resilience**. When an external `GEMINI_API_KEY` is present, semantic reasoning and multimodal visual analysis are handled by `gemini-2.5-flash` with a strict client-side 5 RPM rate limit. When an API key is unconfigured or rate-limited, BrandShield AI falls back honestly and deterministically to local regex, dictionary, visual heuristic, and human-review flags without error and without invoking paid third-party fallback APIs.
 
 ---
 
-## 4. Planned Architecture
+## 3. Unified Multi-Input System (5 Supported Modalities)
+
+BrandShield AI provides a single unified submission workspace accepting content across five distinct media modalities:
+
+1. **Text**: Direct text input and pasted markdown copy for press releases, social captions, newsletters, and ad copy.
+2. **Images**: JPEG, PNG, and WebP asset analysis, including high-resolution graphics and direct mobile camera capture (`capture="environment"`). Evaluates logo presence, clear space, brand color palette compliance, and OCR text.
+3. **Audio**: MP3 and WAV recording ingestion with client-side audio decoding and spoken-dialogue claim extraction.
+4. **Video**: MP4 and WebM visual frame and spoken-content evaluation with timestamped violation tracking.
+5. **Documents**: PDF and DOCX multi-page document parsing for corporate guidelines, whitepapers, and brand manuals.
+
+All file uploads are streamed in chunks, protected by a strict **10MB ceiling**, verified with magic-byte content sniffing, processed in ephemeral temporary storage (`/tmp/brandshield_uploads`), and immediately unlinked after analysis to ensure zero persistent media retention.
+
+---
+
+## 4. Key Governance & Intelligence Engines
 
 ```mermaid
 flowchart TD
-    User([Content Creator / Reviewer])
-
-    subgraph Frontend["Frontend Client (React + TypeScript + Vite)"]
-        UI_Dash["Compliance Dashboard"]
-        UI_Diff["Diff & Correction Studio"]
-        UI_Review["Human-in-the-Loop Approval Console"]
+    subgraph Input["Unified Multi-Input Workspace"]
+        T[Text Copy]
+        I[Image / Camera]
+        A[Audio File]
+        V[Video File]
+        D[PDF / DOCX]
     end
 
-    subgraph Backend["Backend API Gateway (FastAPI)"]
-        Router["REST Routers (/guidelines, /submissions, /reviews)"]
-        StateEngine["Governance State Machine"]
+    subgraph Preprocessing["Multimodal Preprocessing Service"]
+        Val[MIME & Magic-Byte Validator]
+        Ext[Text / OCR / Audio Extractor]
+        Tmp[Ephemeral /tmp Isolation]
     end
 
-    subgraph AI_Core["AI Orchestration Layer (LangGraph)"]
-        LG_Retrieval["Semantic Retrieval (pgvector)"]
-        LG_Audit["Violation & Tone Evaluator"]
-        LG_Explain["Evidence Citation Synthesizer"]
+    subgraph Engines["Compliance & Verification Layer"]
+        Risk[Multi-Factor Risk Scorer<br/>(Score 0-100, Multipliers)]
+        Claim[Claim Verification Engine<br/>(Evidence Citations & Provenance)]
+        Visual[Visual Brand Compliance<br/>(Logos, Colors, OCR, Bounding Boxes)]
+        Ingest[Intelligent Guideline Auto-Drafting<br/>(Candidate Guidelines Ledger)]
     end
 
-    subgraph Database["Storage Engine (Managed PostgreSQL)"]
-        DB_Relational[("Relational Tables: Submissions, Audits, Guidelines")]
-        DB_Vector[("pgvector Embeddings: Rules & Guidelines")]
+    subgraph Database["Database & Security (Neon PostgreSQL)"]
+        RLS[Forced Row-Level Security]
+        Audit[Immutable Audit Ledger<br/>(Triggers Block UPDATE/DELETE)]
+        Dual[Dual-Role Separation<br/>(neondb_owner vs brandshield_app)]
     end
 
-    User <--> Frontend
-    Frontend <-->|REST API| Backend
-    Backend <--> Database
-    Backend <--> AI_Core
-    AI_Core <--> DB_Vector
-    AI_Core -->|Structured Violation Report| StateEngine
-    StateEngine -->|Requires Human Approval| UI_Review
+    subgraph Governance["Human-in-the-Loop Gateway"]
+        Console[Reviewer Decision Console]
+        Decide{Review Decision}
+        Approve[Approved for Publish]
+        Revise[Revision Requested]
+    end
+
+    Input --> Val --> Tmp --> Ext
+    Ext --> Engines
+    Engines --> Database
+    Engines --> Console
+    Console --> Decide
+    Decide -->|Reviewer Sign-Off| Approve
+    Decide -->|Changes Required| Revise
 ```
+
+### A. Multi-Factor Risk Assessment Engine (Phase 1, Milestone 1)
+- Computes an aggregate risk score (0.0 to 100.0) and assigns an actionable severity tier (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+- Applies dynamic channel multipliers (e.g., high-risk external broadcast vs low-risk internal wiki) and target audience sensitivity weighting.
+- Enforced at the database layer with PostgreSQL `CHECK` constraints on `compliance_reports`.
+
+### B. Intelligent Rule Ingestion & Auto-Drafting Engine (Phase 1, Milestone 2)
+- Parses raw PDF and Word guidelines to extract structured brand rules (directive, approved examples, prohibited examples, severity).
+- Stages drafted rules in an isolated `candidate_guidelines` table with an append-only audit ledger (`candidate_guideline_audits`).
+- Candidates remain quarantined and are never used as active compliance criteria until explicitly approved by an Organization Admin.
+
+### C. Dynamic Adaptive Rules Engine (Phase 1, Milestone 3)
+- Evaluates rule applicability dynamically based on target channel, audience, and media type.
+- Ensures rules targeting social media hashtags or print disclaimers do not trigger spurious violations on internal memos.
+
+### D. Claim Verification & Fact-Checking Engine (Phase 1, Milestone 4)
+- Extracts factual assertions and verifies them exclusively against active, approved brand knowledge records.
+- Categorizes claims into rigorous verdicts: `VERIFIED`, `UNSUPPORTED`, `OUTDATED`, `CONTRADICTORY`, or `NEEDS_HUMAN_REVIEW`.
+- Outdated claims require identification of both the superseded record and the newer approved source.
+- Preserves full evidence provenance (source document title, quotation, and confidence score).
+- Stored in the dedicated `claim_verifications` table with forced RLS.
+
+### E. Visual Brand Compliance Engine (Phase 2, Stage 2C)
+- Validates logo usage, positioning, and required clear-space ratios.
+- Compares visual color signatures against approved hex palettes (such as `#0F172A` Slate Dark, `#2563EB` Cobalt, `#059669` Emerald).
+- Emits normalized bounding box coordinates (`[ymin, xmin, ymax, xmax]`) for visual violations.
+- Pinpoints video infractions with millisecond timestamp markers.
+
+### F. Human-in-the-Loop Review & Audit Ledger
+- State machine transition gates require explicit human sign-off before content can leave `UNDER_REVIEW` status.
+- Reviewer approval utilizes pessimistic database row locking (`with_for_update`) to prevent race conditions.
+- Every state transition, edit, and decision writes an entry to `audit_entries`, protected by database triggers that abort any `UPDATE` or `DELETE` operations.
 
 ---
 
-## 5. Project Folder Structure
+## 5. Technology Stack
 
-The project is structured as a clean, modular monorepo:
+### Frontend Client
+- **Framework:** React 18 with TypeScript 5
+- **Build Tool:** Vite 6
+- **Styling:** Tailwind CSS 3 with PostCSS and Autoprefixer
+- **Icons & Visuals:** Lucide React
+- **Architecture:** Hash-based SPA routing, tenant-isolated state, mobile-responsive layout with environment camera bindings
+
+### Backend Engine
+- **Runtime:** Python 3.12 / 3.14+
+- **API Framework:** FastAPI (Asynchronous ASGI)
+- **Data Validation:** Pydantic v2 & Pydantic-Settings
+- **Server:** Uvicorn with ASGI proxy headers
+- **Document Extractors:** `pypdf` (multi-page PDF) and native XML parsing (`word/document.xml` for DOCX)
+- **AI Orchestration:** LangGraph & LangChain-Core
+
+### Database & Security
+- **Platform:** Neon Serverless PostgreSQL
+- **ORM & Migrations:** SQLAlchemy 2 (asyncpg) with Alembic (Revision `0007`)
+- **Isolation:** PostgreSQL Row-Level Security (`ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`)
+- **Dual-Role Model:**
+  - `neondb_owner`: Administrative migration account for DDL execution.
+  - `brandshield_app`: Runtime application role granted least-privilege DML (`SELECT, INSERT, UPDATE, DELETE`) with no DDL or Alembic rights.
+- **Authentication:** Salted bcrypt password hashing with constant-time verification; JWT tokens signed with HS256 carrying tenant organization scoping.
+
+---
+
+## 6. Verification & Test Results
+
+The entire BrandShield AI test suite has been executed and verified in the local environment:
 
 ```text
-BrandShield-AI/
-├── frontend/                     # React + TypeScript + Vite + Tailwind CSS client
-│   ├── src/                      # Source code (components, pages, services, types)
-│   ├── public/                   # Static public assets
-│   ├── package.json              # Frontend package definitions
-│   ├── vite.config.ts            # Vite configuration
-│   └── README.md                 # Frontend architecture and setup notes
-│
-├── backend/                      # FastAPI + Python backend engine
-│   ├── app/                      # Application code (api, core, models, schemas, ai)
-│   ├── tests/                    # Automated test suites
-│   ├── requirements.txt          # Python dependencies
-│   └── README.md                 # Backend architecture and setup notes
-│
-├── docs/                         # In-depth architectural & project documentation
-│   ├── architecture.md           # System architecture and technical specifications
-│   ├── development-phases.md     # Phase-by-phase roadmap and milestones
-│   └── submission-spec.md        # Submission archive specification & verification checklist
-│
-├── .gitignore                    # Root gitignore (node_modules, .venv, secrets, archives)
-└── README.md                     # Root project documentation
+================================== Test Summary ==================================
+Backend Test Suite (pytest):
+  - Total Tests:  340
+  - Passed:       340
+  - Failed:       0
+  - Duration:     3m 17s
+  - Coverage:     API endpoints, risk scoring, claim verification, multimodal
+                  validation, candidate guidelines, database RLS, and security.
+
+Frontend Test Suite (node --test):
+  - Total Tests:  70 (across 8 test suites)
+  - Passed:       70
+  - Failed:       0
+  - Duration:     1.05s
+  - Coverage:     Multimodal workspace invariants, camera capture, 10MB bounds,
+                  remediation authority, tenant isolation, role permissions.
+
+Production Build Verification:
+  - Command:      tsc -b && vite build
+  - Status:       Clean compilation (0 errors, 0 warnings)
+  - Duration:     7.37s
+==================================================================================
 ```
 
 ---
 
-## 6. Implementation Status & Feature Matrix
-
-To maintain rigorous transparency, features are categorized into implemented vs planned:
-
-| Module / Feature | Status | Notes |
-| :--- | :--- | :--- |
-| **Project Repository & Boundary Isolation** | **Implemented (Phase 1)** | Dedicated git repository initialized inside project directory. |
-| **Comprehensive Gitignore & Secret Shielding** | **Implemented (Phase 1)** | Excludes node_modules, .venv, .env, build outputs, and archives. |
-| **Architecture & Phase Specifications** | **Implemented (Phase 1)** | Detailed in `docs/` and root documentation. |
-| **Submission ZIP Specification** | **Implemented (Phase 1)** | Criteria and pre-delivery verification gates documented. |
-| **Backend API & Data Schemas** | *Planned (Phase 2)* | FastAPI endpoints, Pydantic v2 schemas, and test harnesses. |
-| **Managed PostgreSQL + pgvector Setup** | *Planned (Phase 2)* | Schema migrations, relational tables, vector indexing. |
-| **LangGraph Agentic Orchestrator** | *Planned (Phase 3)* | Retrieval, violation detection, citation, and correction graph. |
-| **Evidence & Citation Engine** | *Planned (Phase 3)* | Linking all flagged issues directly to official brand clauses. |
-| **Frontend React Client Scaffolding** | *Planned (Phase 4)* | Vite + Tailwind CSS UI for content review and diffing. |
-| **Human-in-the-Loop Governance Console** | *Planned (Phase 4)* | Human approval, rejection, editing, and revision workflow. |
-| **End-to-End Testing & Submission Packaging** | *Planned (Phase 5)* | Full automated test suite and `BrandShield-AI-Submission.zip`. |
-
----
-
-## 7. Development Roadmap
-
-- **Phase 1: Project Initialization & Architecture** — *Current Phase (Completed)*
-- **Phase 2: Core Data Models, Database Integration & API Foundation** — *Next Phase*
-- **Phase 3: AI Engine, LangGraph Orchestration & Verification Workflow**
-- **Phase 4: Frontend Development & Human-in-the-Loop Review UI**
-- **Phase 5: Automated Testing, Security Auditing & Submission Packaging**
-
----
-
-## 8. Setup & Execution Instructions
-
-*(These instructions will expand incrementally as implementation progresses through each phase).*
+## 7. Local Setup & Execution Guide
 
 ### Prerequisites
-- **Node.js**: v20+ (Verified: v24.19.0)
-- **npm**: v10+ (Verified: 11.17.0)
-- **Python**: 3.12+ / 3.14 (Verified: Python 3.14.6 with pip 26.2.2)
-- **Git**: 2.40+ (Verified: 2.55.0.windows.4)
+- **Node.js**: v20+ (Verified on Node v22 / v24)
+- **Python**: v3.12+ / v3.14 (Verified with Python 3.14.6)
+- **PostgreSQL**: Neon cloud instance or local PostgreSQL 16+
 
-### Clone & Repository Boundary
+### 1. Repository Setup
 ```bash
-# Verify you are in the isolated BrandShield AI repository
-cd "BrandShield AI"
-git status
+git clone https://github.com/singamalavinay-collab/BrandShield-AI.git
+cd BrandShield-AI
 ```
 
-### Backend Setup (Phase 2 Onward)
+### 2. Backend Configuration & Startup
 ```bash
-# Navigate to backend directory
 cd backend
 
-# Create isolated virtual environment
+# Create and activate Python virtual environment
 python -m venv .venv
+# On Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# On Linux/macOS:
+source .venv/bin/activate
 
-# Activate virtual environment (Windows PowerShell)
-.venv\Scripts\Activate.ps1
-
-# Install dependencies
+# Install required dependencies
 pip install -r requirements.txt
 
-# Run backend API server
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your PostgreSQL database URL, JWT secret, and optional Gemini key
+
+# Run database schema migrations
+python -m alembic upgrade head
+
+# Start development API server
 uvicorn app.main:app --reload --port 8000
 ```
+Backend API interactive documentation will be accessible at `http://127.0.0.1:8000/docs`.
 
-### Frontend Setup (Phase 4 Onward)
+### 3. Frontend Client Setup & Startup
 ```bash
-# Navigate to frontend directory
-cd frontend
+cd ../frontend
 
 # Install dependencies
 npm install
@@ -221,13 +242,67 @@ npm install
 # Start Vite development server
 npm run dev
 ```
+Open `http://localhost:5173` in your browser.
+
+### 4. Running Automated Tests
+```bash
+# Run complete backend pytest suite
+cd backend
+python -m pytest
+
+# Run complete frontend test suite
+cd ../frontend
+npm test
+
+# Run frontend production build check
+npm run build
+```
 
 ---
 
-## 9. Submission ZIP Packaging Requirement
+## 8. Repository Structure
 
-Per CodeNova India 2026 requirements, a submission-ready archive will be produced at the conclusion of Phase 5:
-- **Archive Name**: `BrandShield-AI-Submission.zip`
-- **Location**: `submission/` directory
-- **Status in Phase 1**: **NOT GENERATED**. The archive will only be created after all development, tests, and security verifications are completed in Phase 5.
-- Refer to `docs/submission-spec.md` for the full pre-delivery verification checklist.
+```text
+BrandShield-AI/
+├── backend/                              # FastAPI asynchronous backend
+│   ├── alembic/                          # Alembic database migrations (0001 - 0007)
+│   ├── app/
+│   │   ├── api/v1/                       # REST routes (auth, guidelines, submissions, reviews, candidate rules)
+│   │   ├── core/                         # Config, security, database engine, bootstrap
+│   │   ├── engine/                       # Risk scorer, claim verifier, evaluator, graph
+│   │   │   ├── multimodal/               # Ingestion, validation, temp manager, service
+│   │   │   └── rules/                    # Deterministic, adaptive, and visual compliance rules
+│   │   ├── models/                       # SQLAlchemy models (User, Submission, Report, ClaimVerification, etc.)
+│   │   └── schemas/                      # Pydantic validation schemas
+│   ├── tests/                            # 340 automated backend unit and integration tests
+│   ├── Dockerfile                        # Multi-stage container definition
+│   └── requirements.txt                  # Python dependencies
+│
+├── frontend/                             # React 18 + TypeScript + Vite SPA
+│   ├── src/
+│   │   ├── components/                   # Navigation, media badges, modal dialogs, layout
+│   │   ├── pages/                        # Workspace, Review, Analysis Results, Guidelines, Team
+│   │   ├── services/                     # Typed API client with cold-start recovery
+│   │   ├── tests/                        # 70 frontend behavioral and invariant tests
+│   │   └── types/                        # TypeScript domain interfaces
+│   ├── package.json                      # Scripts and dependencies
+│   ├── tailwind.config.js                # Tailwind CSS design system configuration
+│   └── vite.config.ts                    # Vite build configuration
+│
+├── docs/                                 # Technical architecture & phase documentation
+│   ├── architecture.md                   # System design & database schema specifications
+│   ├── development-phases.md             # CodeNova Round 3 roadmap & implementation milestones
+│   └── submission-spec.md                # Submission archive protocol
+│
+├── .gitignore                            # Comprehensive secret, environment, and build shielding
+└── README.md                             # Release documentation
+```
+
+---
+
+## 9. Security & Confidentiality Safeguards
+
+- **Credential Hygiene:** No real passwords, database connection strings, JWT signing keys, or private judge credentials are committed to version control.
+- **Environment Exclusions:** `.env` and `.env.*` files are strictly excluded via `.gitignore`.
+- **Media Ephemerality:** Uploaded media streams are written only to ephemeral storage (`/tmp/brandshield_uploads`), strictly bounded to 10MB, and deleted immediately following analysis.
+- **Tenant Boundary Defense:** All database queries are bound by PostgreSQL Row-Level Security, preventing cross-tenant information disclosure even under direct SQL injection scenarios.

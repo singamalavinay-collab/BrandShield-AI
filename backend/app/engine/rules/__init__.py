@@ -5,6 +5,7 @@ from app.engine.rules.regulatory import RegulatoryRuleDetector
 from app.engine.rules.terminology import TerminologyRuleDetector
 from app.engine.rules.tone import ToneAndFormattingDetector
 from app.engine.rules.trademark import TrademarkRuleDetector
+from app.engine.rules.visual import VisualRuleDetector
 
 ALL_RULE_DETECTORS: List[BaseRuleDetector] = [
     TrademarkRuleDetector(),
@@ -12,6 +13,7 @@ ALL_RULE_DETECTORS: List[BaseRuleDetector] = [
     RegulatoryRuleDetector(),
     TerminologyRuleDetector(),
     ToneAndFormattingDetector(),
+    VisualRuleDetector(),
 ]
 
 __all__ = [
@@ -21,5 +23,6 @@ __all__ = [
     "RegulatoryRuleDetector",
     "TerminologyRuleDetector",
     "ToneAndFormattingDetector",
+    "VisualRuleDetector",
     "ALL_RULE_DETECTORS",
 ]

@@ -13,7 +13,10 @@ export type RuleType =
   | 'formatting'
   | 'legal_regulatory'
   | 'prohibited_claims'
-  | 'trademark_usage';
+  | 'trademark_usage'
+  | 'visual_identity'
+  | 'logo_usage'
+  | 'color_palette';
 
 export type SeverityLevel = 'low' | 'medium' | 'high' | 'critical';
 
@@ -122,7 +125,12 @@ export type TargetChannel =
   | 'email_newsletter'
   | 'blog_post'
   | 'advertisement'
-  | 'press_release';
+  | 'press_release'
+  | 'ad_copy'
+  | 'email'
+  | 'other';
+
+export type InputMediaType = 'text' | 'image' | 'audio' | 'video' | 'document';
 
 export type ReviewAction =
   | 'approve'
@@ -156,6 +164,11 @@ export interface ContentSubmission {
   author_name: string;
   latest_review_id?: string;
   is_demo?: boolean;
+  media_type?: InputMediaType;
+  file_hash_sha256?: string | null;
+  mime_type?: string | null;
+  file_size_bytes?: number | null;
+  multimodal_metadata?: Record<string, any>;
 }
 
 export interface EvidenceCitation {
@@ -182,7 +195,7 @@ export interface RuleViolation {
   id: string;
   rule_id: string;
   rule_name: string;
-  rule_type: RuleType;
+  rule_type: RuleType | string;
   severity: SeverityLevel;
   flagged_text: string;
   char_start?: number;
@@ -190,6 +203,9 @@ export interface RuleViolation {
   explanation: string;
   evidence_citations: EvidenceCitation[];
   suggestions: CorrectionSuggestion[];
+  bounding_box?: number[] | null;
+  timestamp_seconds?: number | null;
+  brand_entity?: string | null;
 }
 
 export interface RemediationSummary {
@@ -202,6 +218,23 @@ export interface RemediationSummary {
   corruptions?: string[];
 }
 
+export type ClaimStatus = 'VERIFIED' | 'UNSUPPORTED' | 'OUTDATED' | 'CONTRADICTORY' | 'NEEDS_HUMAN_REVIEW';
+
+export interface ClaimVerification {
+  id: string;
+  organization_id: string;
+  report_id: string;
+  claim_text: string;
+  status: ClaimStatus;
+  evidence?: string | null;
+  source_reference?: string | null;
+  document_name?: string | null;
+  confidence_score: number;
+  uncertainty_notes?: string | null;
+  is_escalated: boolean;
+  created_at: string;
+}
+
 export interface ComplianceReport {
   id: string;
   submission_id: string;
@@ -212,8 +245,25 @@ export interface ComplianceReport {
   summary: string;
   analyzed_at: string;
   violations: RuleViolation[];
+  claim_verifications?: ClaimVerification[];
   remediated_draft?: string;
   remediation_summary?: RemediationSummary;
+  risk_score?: number;
+  risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  is_escalated?: boolean;
+  channel_multiplier?: number;
+  audience_multiplier?: number;
+  risk_breakdown?: Record<string, any>;
+}
+
+export interface UploadSubmissionDTO {
+  title: string;
+  target_channel: TargetChannel;
+  target_audience?: string;
+  media_type: InputMediaType;
+  content?: string;
+  file?: File | Blob | null;
+  submit_for_inspection?: boolean;
 }
 
 export interface ReviewDecision {

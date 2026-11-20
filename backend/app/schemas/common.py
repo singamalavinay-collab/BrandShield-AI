@@ -15,6 +15,9 @@ class RuleType(str, Enum):
     LEGAL_REGULATORY = "legal_regulatory"
     TRADEMARK_USAGE = "trademark_usage"
     FORMATTING = "formatting"
+    VISUAL_IDENTITY = "visual_identity"
+    LOGO_USAGE = "logo_usage"
+    COLOR_PALETTE = "color_palette"
 
 
 class SeverityLevel(str, Enum):
@@ -61,3 +64,22 @@ class TargetChannel(str, Enum):
     BLOG_POST = "blog_post"
     PRESS_RELEASE = "press_release"
     OTHER = "other"
+
+
+class ClaimStatus(str, Enum):
+    """Five-tier claim verification verdict categories (Phase 1)."""
+
+    VERIFIED = "VERIFIED"
+    UNSUPPORTED = "UNSUPPORTED"
+    OUTDATED = "OUTDATED"
+    CONTRADICTORY = "CONTRADICTORY"
+    NEEDS_HUMAN_REVIEW = "NEEDS_HUMAN_REVIEW"
+
+
+class RiskLevel(str, Enum):
+    """Risk assessment severity bands (Phase 1)."""
+
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth,
+    candidate_guidelines,
     guidelines,
     health,
     invitations,
@@ -26,6 +27,11 @@ api_router.include_router(health.router, tags=["Health"])
 api_router.include_router(system.router, tags=["System Diagnostics"])
 
 # Core Governance Modules
+api_router.include_router(
+    candidate_guidelines.router,
+    prefix="/candidate-guidelines",
+    tags=["Candidate Brand Guidelines"],
+)
 api_router.include_router(
     guidelines.router,
     prefix="/guidelines",

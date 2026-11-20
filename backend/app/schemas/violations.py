@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.common import RuleType, SeverityLevel
+from app.schemas.common import ClaimStatus, RiskLevel, RuleType, SeverityLevel
 
 
 class EvidenceCitation(BaseModel):
@@ -163,6 +163,106 @@ class ViolationDetail(BaseModel):
         return v
 
 
+class ClaimVerificationCreate(BaseModel):
+    """Schema for staging or evaluating a claim verification."""
+
+    claim_text: str = Field(
+        ...,
+        min_length=1,
+        description="Extracted claim text evaluated against brand knowledge",
+    )
+    status: ClaimStatus = Field(
+        ...,
+        description="Verification verdict category (VERIFIED, UNSUPPORTED, OUTDATED, CONTRADICTORY, NEEDS_HUMAN_REVIEW)",
+    )
+    evidence: Optional[str] = Field(
+        default=None,
+        description="Verifiable source clause or excerpt from brand knowledge",
+    )
+    source_reference: Optional[str] = Field(
+        default=None,
+        description="Document section, clause, or paragraph lineage identifier",
+    )
+    document_name: Optional[str] = Field(
+        default=None,
+        description="Title or origin of the reference source document",
+    )
+    confidence_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score of the verification verdict (0.0 to 1.0)",
+    )
+    uncertainty_notes: Optional[str] = Field(
+        default=None,
+        description="Explicit explanation of ambiguity, missing context, or why human review is required",
+    )
+    is_escalated: bool = Field(
+        default=False,
+        description="Whether this claim triggers mandatory escalation",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClaimVerificationResponse(BaseModel):
+    """Structured report of an extracted factual claim verification (Phase 1)."""
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        description="Unique identifier for this claim verification entry",
+    )
+    organization_id: UUID = Field(
+        ...,
+        description="Tenant organization UUID",
+    )
+    report_id: UUID = Field(
+        ...,
+        description="Associated compliance report UUID",
+    )
+    claim_text: str = Field(
+        ...,
+        min_length=1,
+        description="Extracted claim text evaluated against brand knowledge",
+    )
+    status: ClaimStatus = Field(
+        ...,
+        description="Verification verdict category (VERIFIED, UNSUPPORTED, OUTDATED, CONTRADICTORY, NEEDS_HUMAN_REVIEW)",
+    )
+    evidence: Optional[str] = Field(
+        default=None,
+        description="Verifiable source clause or excerpt from brand knowledge",
+    )
+    source_reference: Optional[str] = Field(
+        default=None,
+        description="Document section, clause, or paragraph lineage identifier",
+    )
+    document_name: Optional[str] = Field(
+        default=None,
+        description="Title or origin of the reference source document",
+    )
+    confidence_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score of the verification verdict (0.0 to 1.0)",
+    )
+    uncertainty_notes: Optional[str] = Field(
+        default=None,
+        description="Explicit explanation of ambiguity, missing context, or why human review is required",
+    )
+    is_escalated: bool = Field(
+        default=False,
+        description="Whether this claim triggers mandatory escalation",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when verification was conducted",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ComplianceReport(BaseModel):
     """Overall compliance analysis report synthesized for a content submission."""
 
@@ -190,6 +290,42 @@ class ComplianceReport(BaseModel):
     summary: str = Field(
         ...,
         description="Executive summary of the compliance inspection outcome",
+    )
+
+    # Risk Assessment Fields (Phase 1, Milestone 1)
+    risk_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=100.0,
+        description="Risk assessment score clamped between 0 and 100",
+    )
+    risk_level: RiskLevel = Field(
+        default=RiskLevel.LOW,
+        description="Categorical risk band (LOW, MEDIUM, HIGH, CRITICAL)",
+    )
+    is_escalated: bool = Field(
+        default=False,
+        description="Flag indicating whether submission requires escalated admin governance",
+    )
+    channel_multiplier: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Applied channel risk multiplier",
+    )
+    audience_multiplier: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Applied audience risk multiplier",
+    )
+    risk_breakdown: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Detailed breakdown of base scores and multipliers",
+    )
+
+    # Claim Verifications (Phase 1, Milestone 1)
+    claim_verifications: List[ClaimVerificationResponse] = Field(
+        default_factory=list,
+        description="Verified factual claims evaluated for this submission",
     )
 
     model_config = ConfigDict(from_attributes=True)

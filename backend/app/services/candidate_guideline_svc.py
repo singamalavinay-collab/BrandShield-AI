@@ -81,6 +81,23 @@ async def stage_candidate_guideline(
     return candidate
 
 
+async def stage_candidate_guidelines_batch(
+    session: AsyncSession,
+    organization_id: UUID,
+    payloads: List[CandidateGuidelineCreate],
+) -> List[CandidateGuideline]:
+    """Stage a collection of candidate guidelines atomically within a single transaction.
+    
+    If any individual rule fails validation or staging, the transaction will be rolled back,
+    preventing partial ingestion states.
+    """
+    staged: List[CandidateGuideline] = []
+    for payload in payloads:
+        candidate = await stage_candidate_guideline(session, organization_id, payload)
+        staged.append(candidate)
+    return staged
+
+
 async def list_candidate_guidelines(
     session: AsyncSession,
     organization_id: UUID,

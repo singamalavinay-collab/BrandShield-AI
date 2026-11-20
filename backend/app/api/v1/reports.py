@@ -48,6 +48,7 @@ async def get_submission_compliance_report(
         .options(
             selectinload(ComplianceReport.violations).selectinload(RuleViolation.evidence_citations),
             selectinload(ComplianceReport.violations).selectinload(RuleViolation.suggestions),
+            selectinload(ComplianceReport.claim_verifications),
         )
         .order_by(ComplianceReport.analyzed_at.desc())
         .limit(1)
@@ -65,6 +66,13 @@ async def get_submission_compliance_report(
             "submission_version": submission.version,
             "total_violations": 0,
             "violations": [],
+            "risk_score": 0.0,
+            "risk_level": "LOW",
+            "is_escalated": False,
+            "channel_multiplier": 1.0,
+            "audience_multiplier": 1.0,
+            "risk_breakdown": {},
+            "claim_verifications": [],
             "summary": "Compliance inspection has not been executed yet. The automated agentic evaluation engine is pending Phase 4 implementation.",
             "analyzed_at": None,
         }
@@ -134,6 +142,24 @@ async def get_submission_compliance_report(
         guidelines=serialized_guidelines,
     )
 
+    formatted_claims = [
+        {
+            "id": str(c.id),
+            "organization_id": str(c.organization_id),
+            "report_id": str(c.report_id),
+            "claim_text": c.claim_text,
+            "status": c.status,
+            "evidence": c.evidence,
+            "source_reference": c.source_reference,
+            "document_name": c.document_name,
+            "confidence_score": c.confidence_score,
+            "uncertainty_notes": c.uncertainty_notes,
+            "is_escalated": c.is_escalated,
+            "created_at": c.created_at.isoformat() if hasattr(c.created_at, "isoformat") else str(c.created_at),
+        }
+        for c in (report.claim_verifications or [])
+    ]
+
     return {
         "is_analyzed": True,
         "status": "completed",
@@ -143,9 +169,16 @@ async def get_submission_compliance_report(
         "submission_version": report.submission_version,
         "is_compliant": report.is_compliant,
         "total_violations": report.total_violations,
+        "risk_score": getattr(report, "risk_score", 0.0),
+        "risk_level": getattr(report, "risk_level", "LOW"),
+        "is_escalated": getattr(report, "is_escalated", False),
+        "channel_multiplier": getattr(report, "channel_multiplier", 1.0),
+        "audience_multiplier": getattr(report, "audience_multiplier", 1.0),
+        "risk_breakdown": getattr(report, "risk_breakdown", {}) or {},
         "summary": report.summary,
         "analyzed_at": report.analyzed_at.isoformat(),
         "violations": formatted_violations,
+        "claim_verifications": formatted_claims,
         "remediated_draft": remediation_res["remediated_draft"],
         "remediation_summary": {
             "total_violations": remediation_res["total_violations"],
@@ -194,3 +227,17 @@ async def get_submission_suggestions(
                 **s,
             })
     return suggestions
+
+
+@router.get(
+    "/submissions/{submission_id}/claims",
+    summary="Retrieve Claim Verifications",
+    description="Retrieves the list of factual claims extracted and verified for this submission.",
+)
+async def get_submission_claims(
+    submission_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    org: Organization = Depends(get_current_organization),
+) -> List[Dict[str, Any]]:
+    report_data = await get_submission_compliance_report(submission_id, session, org)
+    return report_data.get("claim_verifications", [])
