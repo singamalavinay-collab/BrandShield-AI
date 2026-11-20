@@ -24,7 +24,7 @@ from enum import Enum
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from app.core.config import settings
 from app.engine.ai_provider import AIProvider, ai_provider as default_ai_provider
