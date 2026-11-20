@@ -63,7 +63,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({
   const currentReport = pendingSubmission ? reports[pendingSubmission.id] : null;
 
   // Review decision form state
-  const [selectedAction, setSelectedAction] = useState<ReviewAction>('edit_and_approve');
+  const [selectedAction, setSelectedAction] = useState<ReviewAction | null>(null);
   const [feedbackNotes, setFeedbackNotes] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
   const [editableContent, setEditableContent] = useState(
@@ -164,6 +164,11 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({
 
     setValidationError(null);
     setDecisionSuccess(null);
+
+    if (!selectedAction) {
+      setValidationError('Please select a review decision before authorizing.');
+      return;
+    }
 
     // Strict validation enforcing human governance invariants
     if (selectedAction === 'edit_and_approve') {
@@ -661,33 +666,41 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({
                 <Clock className="w-3 h-3 text-slate-400" />
                 <span>Audit Preview (Committed upon authorization):</span>
               </div>
-              <div className="text-[11px] text-slate-700">
-                Action: <strong className="text-slate-900">{selectedAction}</strong> • Actor:{' '}
-                <strong className="text-slate-900">
-                  {currentUser ? `${currentUser.full_name} (human)` : 'Unverified human actor'}
-                </strong>{' '}
-                • Target Status:{' '}
-                <strong className="text-slate-900">
-                  {selectedAction === 'approve' || selectedAction === 'edit_and_approve'
-                    ? 'approved'
-                    : selectedAction === 'reject'
-                    ? 'rejected'
-                    : 'revision_requested'}
-                </strong>
-              </div>
+              {selectedAction ? (
+                <div className="text-[11px] text-slate-700">
+                  Action: <strong className="text-slate-900">{selectedAction}</strong> • Actor:{' '}
+                  <strong className="text-slate-900">
+                    {currentUser ? `${currentUser.full_name} (human)` : 'Unverified human actor'}
+                  </strong>{' '}
+                  • Target Status:{' '}
+                  <strong className="text-slate-900">
+                    {selectedAction === 'approve' || selectedAction === 'edit_and_approve'
+                      ? 'approved'
+                      : selectedAction === 'reject'
+                      ? 'rejected'
+                      : 'revision_requested'}
+                  </strong>
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-500 italic">
+                  No decision selected. Select an action above to preview the immutable audit record.
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
             <div className="pt-2 flex justify-end">
               <button
                 type="submit"
-                disabled={isSubmitting || !canReview}
+                disabled={isSubmitting || !canReview || !selectedAction}
                 className={`px-5 py-2.5 rounded-lg text-white text-xs font-bold transition shadow-sm flex items-center gap-2 ${
                   !currentUser
                     ? 'bg-slate-400 cursor-not-allowed'
                     : !isAuthorizedReviewer
                     ? 'bg-amber-600 opacity-60 cursor-not-allowed'
                     : !isUnderReview
+                    ? 'bg-slate-400 cursor-not-allowed'
+                    : !selectedAction
                     ? 'bg-slate-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
@@ -699,6 +712,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({
                   ? `Forbidden for ${currentUser.role}`
                   : !isUnderReview
                   ? `Status: ${pendingSubmission.status.replace(/_/g, ' ')}`
+                  : !selectedAction
+                  ? 'Select Decision to Authorize'
                   : isSubmitting
                   ? 'Committing to Audit Ledger...'
                   : 'Authorize & Commit Decision'}

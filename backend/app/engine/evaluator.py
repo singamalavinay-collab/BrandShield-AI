@@ -223,27 +223,35 @@ class ComplianceEngine:
         claims_escalated_count = sum(1 for c in claim_verifications if c.get("is_escalated", False))
         claims_note = f", {claims_evaluated_count} claim(s) evaluated ({claims_escalated_count} escalated)" if claims_evaluated_count else ""
 
-        if actor:
-            actor_id = str(actor.id)
-            actor_name = actor.full_name
-            actor_type = "human"
-            audit_notes = (
-                f"Compliance inspection triggered by {actor.full_name}: {total_violations} violation(s) detected across {len(active_guidelines)} guideline(s){claims_note}. "
-                f"Risk score: {report.risk_score} ({report.risk_level}, escalated={report.is_escalated}). "
-                f"Outcome: '{submission.status}'."
-                if active_guidelines
-                else f"Compliance inspection triggered by {actor.full_name}: 0 active brand guidelines configured. Content compliance cannot be evaluated."
+        is_reinspection = (previous_status == submission.status)
+        action_type = "compliance_reinspection" if is_reinspection else "automated_compliance_inspection"
+
+        actor_id = "compliance_engine"
+        actor_name = "BrandShield Compliance Engine"
+        actor_type = "system"
+
+        if is_reinspection:
+            trigger_prefix = (
+                f"Compliance re-inspection triggered by {actor.full_name} (status reaffirmed: '{submission.status}'): "
+                if actor
+                else f"Automated compliance re-inspection completed (status reaffirmed: '{submission.status}'): "
             )
         else:
-            actor_id = "compliance_engine"
-            actor_name = "BrandShield Compliance Engine"
-            actor_type = "system"
+            trigger_prefix = (
+                f"Compliance inspection triggered by {actor.full_name}: "
+                if actor
+                else "Automated compliance evaluation completed: "
+            )
+
+        if active_guidelines:
             audit_notes = (
-                f"Automated compliance evaluation completed: {total_violations} violation(s) detected across {len(active_guidelines)} guideline(s){claims_note}. "
+                f"{trigger_prefix}{total_violations} violation(s) detected across {len(active_guidelines)} guideline(s){claims_note}. "
                 f"Risk score: {report.risk_score} ({report.risk_level}, escalated={report.is_escalated}). "
                 f"Outcome: '{submission.status}'."
-                if active_guidelines
-                else "Automated compliance evaluation incomplete: 0 active brand guidelines configured. Content compliance cannot be evaluated."
+            )
+        else:
+            audit_notes = (
+                f"{trigger_prefix}0 active brand guidelines configured. Content compliance cannot be evaluated."
             )
 
         audit = AuditEntry(
@@ -252,7 +260,7 @@ class ComplianceEngine:
             submission_id=submission.id,
             previous_status=previous_status,
             new_status=submission.status,
-            action_type="automated_compliance_inspection",
+            action_type=action_type,
             actor_id=actor_id,
             actor_type=actor_type,
             actor_name=actor_name,
@@ -265,6 +273,8 @@ class ComplianceEngine:
                 "risk_score": report.risk_score,
                 "risk_level": report.risk_level,
                 "is_escalated": report.is_escalated,
+                "is_reinspection": is_reinspection,
+                "status_reaffirmed": is_reinspection,
                 "channel_multiplier": report.channel_multiplier,
                 "audience_multiplier": report.audience_multiplier,
                 "media_type": getattr(submission, "media_type", "text") or "text",
@@ -278,6 +288,7 @@ class ComplianceEngine:
                 "claims_needs_review_count": sum(1 for c in claim_verifications if c.get("status") == "NEEDS_HUMAN_REVIEW"),
                 "triggered_by_id": str(actor.id) if actor else None,
                 "triggered_by_name": actor.full_name if actor else None,
+                "triggered_by_email": getattr(actor, "email", None) if actor else None,
             },
         )
         session.add(audit)

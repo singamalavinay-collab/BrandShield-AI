@@ -205,9 +205,12 @@ class RemediationSynthesizer:
             v0 = violations[0]
             r_type = v0.get("rule_type")
             r_name = v0.get("rule_name", "").lower()
+            sug = cls._extract_suggestion_text(v0)
 
             # Trademark normalization
             if r_type == "trademark_usage" or "trademark" in r_name:
+                if sug and "brandshield" in sug.lower():
+                    return cls._clean_replacement(sug)
                 if "brandshield" in cluster_text.lower():
                     return "BrandShield AI"
 
@@ -220,12 +223,13 @@ class RemediationSynthesizer:
 
             # Claims normalization
             if r_type == "prohibited_claims":
+                if sug:
+                    return cls._clean_replacement(sug)
                 if "100%" in cluster_text or "guarantee" in cluster_text.lower():
                     if "channel" in cluster_text.lower() or "everywhere" in cluster_text.lower():
                         return "substantially elevates brand compliance across modern channels"
                     return "substantially elevates brand compliance"
 
-            sug = cls._extract_suggestion_text(v0)
             if sug:
                 return cls._clean_replacement(sug)
             return cluster_text

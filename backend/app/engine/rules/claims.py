@@ -53,7 +53,7 @@ class ProhibitedClaimsDetector(BaseRuleDetector):
         guideline_text = (guideline.get("name", "") + " " + source_clause).lower()
         if any(keyword in guideline_text for keyword in ["absolute", "infallible", "guarantee", "100%", "risk-free", "compliance"]):
             common_claim_patterns = [
-                (r"\bguarantee[a-z]*\s+100%(?:\s*(?:brand\s*)?(?:compliance|safety|security))?(?:\s+across\s+(?:every|all|modern)\s+channels?)?\b", "substantially elevates brand compliance across modern channels", "Unsubstantiated absolute performance guarantee."),
+                (r"\bguarantee[a-z]*\s+100%(?:\s*(?:brand\s*)?(?:compliance|safety|security))?(?:\s+(?:across\s+(?:every|all|modern)\s+channels?|everywhere))?\b", "substantially elevates brand compliance across modern channels", "Unsubstantiated absolute performance guarantee."),
                 (r"\b100%\s*(?:brand\s*)?(?:compliance|safety)\b", "comprehensive brand protection", "Absolute compliance guarantee violates advertising standards."),
                 (r"\b100%\s+infallible\b", "substantially reduces risk", "Absolute claim of infallibility cannot be legally verified."),
                 (r"\b100%\s+guaranteed\b", "rigorously verified", "Absolute performance guarantee violates advertising standards."),

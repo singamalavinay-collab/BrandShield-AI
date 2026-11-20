@@ -52,11 +52,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 }) => {
   const activeGuidelinesCount = guidelines.filter((g) => g.is_active).length;
   const pendingReviewsCount = submissions.filter((s) => s.status === 'under_human_review').length;
-  const approvedCount = submissions.filter((s) => s.status === 'approved').length;
-  const hasSubmissions = submissions.length > 0;
-  const complianceRate = hasSubmissions
-    ? Math.round((approvedCount / submissions.length) * 100)
-    : null;
+  const unroutedViolationsCount = submissions.filter((s) => s.status === 'violations_found').length;
+  const evaluatedSubmissions = submissions.filter((s) =>
+    ['passed_checks', 'violations_found', 'under_human_review', 'approved', 'rejected', 'revision_requested'].includes(
+      s.status
+    )
+  );
+  const compliantCount = evaluatedSubmissions.filter((s) =>
+    ['passed_checks', 'approved'].includes(s.status)
+  ).length;
+  const complianceRate =
+    evaluatedSubmissions.length > 0
+      ? Math.round((compliantCount / evaluatedSubmissions.length) * 100)
+      : null;
 
   const isDbConnected = systemDiagnostic?.database?.connected ?? false;
   const isAllDemo = submissions.length > 0 && submissions.every((s) => s.is_demo);
@@ -107,26 +115,39 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
           <div className="text-2xl font-bold text-slate-900 mt-2">{submissions.length}</div>
           <div className="text-xs text-slate-500 mt-1">
-            {approvedCount} approved, {submissions.length - approvedCount} in governance
+            {compliantCount} compliant, {submissions.length - compliantCount} in governance
           </div>
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle hover:border-slate-300 transition">
+        <div
+          className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle hover:border-slate-300 transition"
+          title="Formal review queue requires submissions to be in 'under_human_review' status. Submissions with 'violations_found' can be advanced to review from the Analysis page."
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Pending Human Review
+              Formal Review Queue
             </span>
             <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-bold text-purple-700 mt-2">{pendingReviewsCount}</div>
-          <div className="text-xs text-slate-500 mt-1">Awaiting compliance sign-off</div>
+          <div className="text-xs text-slate-500 mt-1">
+            {pendingReviewsCount} in queue awaiting sign-off
+            {unroutedViolationsCount > 0 && (
+              <span className="block text-[11px] text-amber-600 mt-0.5">
+                ({unroutedViolationsCount} unrouted {unroutedViolationsCount === 1 ? 'violation' : 'violations'} in staging)
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Metric 4 */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle hover:border-slate-300 transition">
+        <div
+          className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-subtle hover:border-slate-300 transition"
+          title="Compliance rate is calculated across evaluated drafts (passed checks + approved / total evaluated)."
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Compliance Rate
@@ -141,8 +162,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="text-xs text-slate-500 mt-1">
             {isAllDemo
               ? 'Demo simulation rate'
-              : hasSubmissions
-              ? 'Calculated across drafts'
+              : evaluatedSubmissions.length > 0
+              ? `${compliantCount} of ${evaluatedSubmissions.length} evaluated drafts compliant`
               : 'No submissions evaluated yet'}
           </div>
         </div>
@@ -188,6 +209,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-semibold text-slate-900 truncate">{sub.title}</h3>
+                      <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        #{sub.id.length > 12 ? sub.id.slice(0, 8) : sub.id}
+                      </span>
                       <MediaBadge mediaType={sub.media_type} />
                       <StatusBadge status={sub.status} />
                       {sub.is_demo ? (
@@ -201,10 +225,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       )}
                     </div>
                     <p className="text-xs text-slate-500 line-clamp-1 mt-1">{sub.content}</p>
-                    <div className="flex items-center gap-4 text-[11px] text-slate-400 mt-2">
+                    <div className="flex items-center gap-4 text-[11px] text-slate-400 mt-2 flex-wrap">
                       <span>Channel: <strong className="text-slate-600 capitalize">{sub.target_channel.replace('_', ' ')}</strong></span>
                       <span>Author: {sub.author_name}</span>
                       <span>v{sub.version}</span>
+                      {sub.created_at && (
+                        <span>
+                          Created: {new Date(sub.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, {new Date(sub.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
                     </div>
                   </div>
 

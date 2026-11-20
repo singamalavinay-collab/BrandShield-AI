@@ -20,8 +20,9 @@ import { TargetChannel, ContentSubmission, AuthUser, InputMediaType } from '../t
 interface SubmissionPageProps {
   onSubmitContent: (
     newSub: Omit<ContentSubmission, 'id' | 'created_at' | 'version' | 'status'>,
-    shouldInspect: boolean
-  ) => Promise<void> | void;
+    shouldInspect: boolean,
+    existingDraftId?: string | null
+  ) => Promise<ContentSubmission | null | void> | void;
   onSubmitUpload?: (
     formData: FormData,
     metadata: {
@@ -33,7 +34,7 @@ interface SubmissionPageProps {
       author_name: string;
     },
     shouldInspect: boolean
-  ) => Promise<void> | void;
+  ) => Promise<ContentSubmission | null | void> | void;
   dbOffline?: boolean;
   currentUser?: AuthUser | null;
 }
@@ -92,6 +93,7 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
   currentUser,
 }) => {
   const [activeModality, setActiveModality] = useState<InputMediaType>('text');
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [targetChannel, setTargetChannel] = useState<TargetChannel>('twitter_x');
@@ -143,6 +145,7 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
   const handleSelectModality = (modality: InputMediaType) => {
     if (modality === activeModality) return;
     setActiveModality(modality);
+    setActiveDraftId(null);
     handleRemoveFile();
     setValidationError(null);
     setSuccessMessage(null);
@@ -245,6 +248,7 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
 
   // Preset Template loader for testing
   const loadPreset = (presetType: 'violations' | 'compliant') => {
+    setActiveDraftId(null);
     setSuccessMessage(null);
     setValidationError(null);
     setActiveModality('text');
@@ -319,7 +323,7 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
         formData.append('file', selectedFile);
         formData.append('submit_for_inspection', String(isSubmittingForInspection));
 
-        await onSubmitUpload(
+        const result = await onSubmitUpload(
           formData,
           {
             title: cleanTitle,
@@ -333,13 +337,16 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
         );
 
         if (!isSubmittingForInspection) {
+          if (result && 'id' in result) {
+            setActiveDraftId(result.id);
+          }
           setSuccessMessage(
             `${MODALITY_CONFIG[activeModality].label} draft successfully saved in the governance ledger.`
           );
         }
       } else {
         // Standard text submission path
-        await onSubmitContent(
+        const result = await onSubmitContent(
           {
             title: cleanTitle,
             content: content.trim() || `[${activeModality.toUpperCase()} Submission: ${selectedFile?.name || 'Asset'}]`,
@@ -348,10 +355,14 @@ export const SubmissionPage: React.FC<SubmissionPageProps> = ({
             author_name: currentUser?.full_name || 'Content Creator (Authenticated)',
             is_demo: false,
           },
-          isSubmittingForInspection
+          isSubmittingForInspection,
+          isSubmittingForInspection ? activeDraftId : undefined
         );
 
         if (!isSubmittingForInspection) {
+          if (result && 'id' in result) {
+            setActiveDraftId(result.id);
+          }
           setSuccessMessage('Content successfully saved as draft in the governance ledger.');
         }
       }

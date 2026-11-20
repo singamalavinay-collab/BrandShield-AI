@@ -73,6 +73,20 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, severity, size
             Submitted
           </span>
         );
+      case 'violations_found':
+        return (
+          <span className={`inline-flex items-center font-medium rounded-full bg-amber-50 text-amber-800 border border-amber-200 ${sizeClasses}`}>
+            <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-amber-500"></span>
+            Violations Found
+          </span>
+        );
+      case 'passed_checks':
+        return (
+          <span className={`inline-flex items-center font-medium rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 ${sizeClasses}`}>
+            <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500"></span>
+            Passed Checks
+          </span>
+        );
       case 'revision_requested':
         return (
           <span className={`inline-flex items-center font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200 ${sizeClasses}`}>

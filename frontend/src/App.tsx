@@ -325,17 +325,44 @@ export const App: React.FC = () => {
   // Submission Handlers
   const handleSubmitContent = async (
     newSub: Omit<ContentSubmission, 'id' | 'created_at' | 'version' | 'status'>,
-    shouldInspect: boolean
-  ) => {
+    shouldInspect: boolean,
+    existingDraftId?: string | null
+  ): Promise<ContentSubmission | null> => {
     setInspectionError(null);
     let createdSubmission: ContentSubmission | null = null;
+
+    if (existingDraftId && shouldInspect) {
+      if (backendHealth.is_connected && systemDiagnostic?.database.connected) {
+        try {
+          setIsAnalyzing(true);
+          const analyzedSub = await analyzeSubmission(existingDraftId);
+          setSubmissions((prev) =>
+            prev.map((s) => (s.id === existingDraftId ? { ...s, status: analyzedSub.status } : s))
+          );
+          setSelectedSubmissionId(existingDraftId);
+          const report = await fetchSubmissionReport(existingDraftId);
+          setReports((prev) => ({ ...prev, [existingDraftId]: report }));
+          setInspectionError(null);
+          await refreshAuditLogs();
+          setCurrentTab('analysis');
+          return analyzedSub;
+        } catch (err: unknown) {
+          console.error('Automated compliance inspection on existing draft failed:', err);
+          setInspectionError(
+            err instanceof Error ? err.message : 'Automated compliance inspection failed.'
+          );
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+    }
 
     if (backendHealth.is_connected && systemDiagnostic?.database.connected) {
       const token = ensureAuthenticatedSession();
       if (!token && shouldInspect) {
         setInspectionError('Authentication required: Please sign in or create an account to submit content for compliance evaluation.');
         setIsLoginModalOpen(true);
-        return;
+        return null;
       }
       try {
         createdSubmission = await createSubmission(
@@ -400,27 +427,29 @@ export const App: React.FC = () => {
         } finally {
           setIsAnalyzing(false);
         }
+      } else {
+        // Fallback local audit entry only when offline / disconnected from DB
+        const audit: AuditEntry = {
+          id: `aud-${Date.now().toString().slice(-4)}`,
+          organization_name: 'BrandShield Primary Org',
+          submission_id: submissionId,
+          previous_status: 'draft',
+          new_status: createdSubmission.status,
+          action_type: 'content_submission',
+          actor_id: 'usr-author',
+          actor_type: 'human',
+          actor_name: newSub.author_name,
+          notes: 'Submitted draft for brand compliance inspection and governance sign-off.',
+          timestamp: new Date().toISOString(),
+        };
+        setAuditLogs((prev) => [audit, ...prev]);
       }
-
-      // Record Audit Entry
-      const audit: AuditEntry = {
-        id: `aud-${Date.now().toString().slice(-4)}`,
-        organization_name: 'BrandShield Primary Org',
-        submission_id: submissionId,
-        previous_status: 'draft',
-        new_status: createdSubmission.status,
-        action_type: 'content_submission',
-        actor_id: 'usr-author',
-        actor_type: 'human',
-        actor_name: newSub.author_name,
-        notes: 'Submitted draft for brand compliance inspection and governance sign-off.',
-        timestamp: new Date().toISOString(),
-      };
-      setAuditLogs((prev) => [audit, ...prev]);
 
       // Navigate to analysis results
       setCurrentTab('analysis');
     }
+
+    return createdSubmission;
   };
 
   const handleUploadSubmission = async (
@@ -503,27 +532,29 @@ export const App: React.FC = () => {
         } finally {
           setIsAnalyzing(false);
         }
+      } else {
+        // Fallback local audit entry only when offline / disconnected from DB
+        const audit: AuditEntry = {
+          id: `aud-${Date.now().toString().slice(-4)}`,
+          organization_name: 'BrandShield Primary Org',
+          submission_id: submissionId,
+          previous_status: 'draft',
+          new_status: createdSubmission.status,
+          action_type: 'upload_multimodal_content',
+          actor_id: 'usr-author',
+          actor_type: 'human',
+          actor_name: metadata.author_name,
+          notes: `Submitted ${metadata.media_type} draft for brand compliance inspection and governance sign-off.`,
+          timestamp: new Date().toISOString(),
+        };
+        setAuditLogs((prev) => [audit, ...prev]);
       }
-
-      // Record Audit Entry
-      const audit: AuditEntry = {
-        id: `aud-${Date.now().toString().slice(-4)}`,
-        organization_name: 'BrandShield Primary Org',
-        submission_id: submissionId,
-        previous_status: 'draft',
-        new_status: createdSubmission.status,
-        action_type: 'upload_multimodal_content',
-        actor_id: 'usr-author',
-        actor_type: 'human',
-        actor_name: metadata.author_name,
-        notes: `Submitted ${metadata.media_type} draft for brand compliance inspection and governance sign-off.`,
-        timestamp: new Date().toISOString(),
-      };
-      setAuditLogs((prev) => [audit, ...prev]);
 
       // Navigate to analysis results
       setCurrentTab('analysis');
     }
+
+    return createdSubmission;
   };
 
   // Trigger analysis on an existing submission

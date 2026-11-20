@@ -502,9 +502,11 @@ async def test_audit_records_bind_authenticated_user_identity(team_client: Async
         .where(AuditEntry.submission_id == uuid.UUID(sub_id), AuditEntry.action_type == "automated_compliance_inspection")
     )
     audit_an = (await team_session.execute(audit_an_stmt)).scalar_one()
-    assert audit_an.actor_id == str(creator.id)
-    assert audit_an.actor_name == creator.full_name
-    assert audit_an.actor_type == "human"
+    assert audit_an.actor_id == "compliance_engine"
+    assert audit_an.actor_name == "BrandShield Compliance Engine"
+    assert audit_an.actor_type == "system"
+    assert audit_an.details.get("triggered_by_id") == str(creator.id)
+    assert audit_an.details.get("triggered_by_name") == creator.full_name
 
     # 4. Advance to human review
     advance_res = await team_client.post(

@@ -71,9 +71,16 @@ export const CorrectionsPage: React.FC<CorrectionsPageProps> = ({
   }
 
   const totalViolations = currentReport.violations.length;
-  const remediatedCount = remediationSummary?.remediated_violations ?? (isRemediationAvailable ? totalViolations : 0);
-  const unresolvedCount = remediationSummary?.unresolved_violations ?? (isRemediationAvailable ? 0 : totalViolations);
-  const isFullyRemediated = isRemediationAvailable && Boolean(remediationSummary?.is_fully_remediated);
+  const remediatedCount = remediationSummary?.remediated_violations ?? 0;
+  const unresolvedCount =
+    remediationSummary?.unresolved_violations ??
+    (isRemediationAvailable ? Math.max(0, totalViolations - remediatedCount) : totalViolations);
+  const isFullyRemediated =
+    isRemediationAvailable &&
+    Boolean(remediationSummary?.is_fully_remediated) &&
+    unresolvedCount === 0 &&
+    remediatedCount === totalViolations &&
+    totalViolations > 0;
 
   const handleStageForReview = async () => {
     if (!isRemediationAvailable) return;
